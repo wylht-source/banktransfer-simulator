@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BankingApi.Application.Transactions.Commands;
 using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
@@ -38,8 +39,9 @@ public class TransactionsController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
             var result = await _depositHandler.HandleAsync(
-                new DepositCommand(request.AccountId, request.Amount, request.Description, idempotencyKey), ct);
+                new DepositCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
             if (result.WasDuplicate)
                 Response.Headers.Append("X-Idempotency-Replayed", "true");
@@ -66,8 +68,9 @@ public class TransactionsController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
             var result = await _withdrawHandler.HandleAsync(
-                new WithdrawCommand(request.AccountId, request.Amount, request.Description, idempotencyKey), ct);
+                new WithdrawCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
             if (result.WasDuplicate)
                 Response.Headers.Append("X-Idempotency-Replayed", "true");
@@ -94,8 +97,9 @@ public class TransactionsController : ControllerBase
     {
         try
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
             var result = await _transferHandler.HandleAsync(
-                new TransferCommand(request.FromAccountId, request.ToAccountId, request.Amount, request.Description, idempotencyKey), ct);
+                new TransferCommand(request.FromAccountId, request.ToAccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
             if (result.WasDuplicate)
                 Response.Headers.Append("X-Idempotency-Replayed", "true");

@@ -1,0 +1,66 @@
+name: CI/CD → Azure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: az acr login --name wybanking
+
+      - name: Set image tag
+        id: tag
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }} .
+          docker tag ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }} ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:latest
+          docker push ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }}
+          docker push ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:latest
+
+      - name: Deploy to Azure App Service
+        run: |
+          az webapp config container set \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --resource-group rg-banking-api \
+            --container-image-name ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }}
+
+      - name: Restart App Service
+        run: az webapp restart --name ${{ secrets.AZURE_WEBAPP_NAME }} --resource-group rg-banking-api

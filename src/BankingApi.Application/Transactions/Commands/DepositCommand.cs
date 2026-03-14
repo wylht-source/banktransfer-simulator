@@ -3,7 +3,7 @@ using BankingApi.Domain.Exceptions;
 
 namespace BankingApi.Application.Transactions.Commands;
 
-public record DepositCommand(Guid AccountId, decimal Amount, string Description, Guid IdempotencyKey);
+public record DepositCommand(Guid AccountId, decimal Amount, string Description, Guid IdempotencyKey, string RequestingUserId);
 
 public record DepositResult(Guid TransactionId, decimal NewBalance, bool WasDuplicate);
 
@@ -30,6 +30,9 @@ public class DepositHandler
 
         var account = await _accounts.GetByIdAsync(cmd.AccountId, ct)
             ?? throw new DomainException($"Account {cmd.AccountId} not found.");
+
+        if (account.OwnerId != cmd.RequestingUserId)
+            throw new DomainException("Access denied.");
 
         account.Deposit(cmd.Amount, cmd.Description, cmd.IdempotencyKey);
 
