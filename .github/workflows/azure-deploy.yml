@@ -6,12 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
-  WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
-  RESOURCE_GROUP: rg-banking-api
-  ACR_NAME: wybanking
-
 jobs:
   test:
     name: Run Tests
@@ -42,21 +36,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to Azure CLI
+      - name: Debug secrets length
+        run: |
+          echo "CLIENT_ID length: ${#CLIENT_ID}"
+          echo "TENANT_ID length: ${#TENANT_ID}"
+          echo "SUBSCRIPTION_ID length: ${#SUBSCRIPTION_ID}"
         env:
           CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to Azure CLI
         run: |
           az login --service-principal \
-            -u "$CLIENT_ID" \
-            -p "$CLIENT_SECRET" \
-            --tenant "$TENANT_ID"
-          az account set --subscription "$SUBSCRIPTION_ID"
+            -u "${{ secrets.AZURE_CLIENT_ID }}" \
+            -p "${{ secrets.AZURE_CLIENT_SECRET }}" \
+            --tenant "${{ secrets.AZURE_TENANT_ID }}"
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
 
       - name: Login to ACR
-        run: az acr login --name "$ACR_NAME"
+        run: az acr login --name wybanking
 
       - name: Set image tag
         id: tag
@@ -64,21 +63,17 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE="$ACR_LOGIN_SERVER/banking-api"
-          SHA_TAG="${{ steps.tag.outputs.sha }}"
-          docker build -t "$IMAGE:$SHA_TAG" .
-          docker tag "$IMAGE:$SHA_TAG" "$IMAGE:latest"
-          docker push "$IMAGE:$SHA_TAG"
-          docker push "$IMAGE:latest"
+          docker build -t ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }} .
+          docker tag ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }} ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:latest
+          docker push ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }}
+          docker push ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:latest
 
       - name: Deploy to Azure App Service
         run: |
-          IMAGE="$ACR_LOGIN_SERVER/banking-api"
-          SHA_TAG="${{ steps.tag.outputs.sha }}"
           az webapp config container set \
-            --name "$WEBAPP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --container-image-name "$IMAGE:$SHA_TAG"
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --resource-group rg-banking-api \
+            --container-image-name ${{ secrets.AZURE_ACR_LOGIN_SERVER }}/banking-api:${{ steps.tag.outputs.sha }}
 
       - name: Restart App Service
-        run: az webapp restart --name "$WEBAPP_NAME" --resource-group "$RESOURCE_GROUP"
+        run: az webapp restart --name ${{ secrets.AZURE_WEBAPP_NAME }} --resource-group rg-banking-api
