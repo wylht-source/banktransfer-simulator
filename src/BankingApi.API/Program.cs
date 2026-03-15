@@ -14,6 +14,8 @@ using Microsoft.OpenApi.Models;
 using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+// Application Insights
+builder.Services.AddApplicationInsightsTelemetry();
 // Key Vault — only in production (Azure)
 if (builder.Environment.IsProduction())
 {
