@@ -11,8 +11,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+// Key Vault — only in production (Azure)
+if (builder.Environment.IsProduction())
+{
+    var keyVaultUri = new Uri("https://kv-banking-api.vault.azure.net/");
+    builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
+}
 
 // Controllers + JSON enum serialization
 builder.Services.AddControllers()
