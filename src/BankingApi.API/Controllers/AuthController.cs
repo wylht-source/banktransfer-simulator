@@ -21,7 +21,7 @@ public class AuthController : ControllerBase
         _config = config;
     }
 
-    /// <summary>Register a new user.</summary>
+    /// <summary>Register a new user. All users are assigned the Client role by default.</summary>
     [HttpPost("register")]
     [ProducesResponseType(typeof(RegisterResult), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -32,6 +32,9 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+
+        // All registered users get the Client role by default
+        await _userManager.AddToRoleAsync(user, "Client");
 
         return CreatedAtAction(nameof(Register), new RegisterResult(user.Id, user.Email!));
     }
@@ -46,21 +49,26 @@ public class AuthController : ControllerBase
         if (user is null || !await _userManager.CheckPasswordAsync(user, cmd.Password))
             return Unauthorized(new { error = "Invalid email or password." });
 
-        var token = GenerateJwtToken(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = GenerateJwtToken(user, roles);
         return Ok(new LoginResult(token, user.Id, user.Email!));
     }
 
-    private string GenerateJwtToken(IdentityUser user)
+    private string GenerateJwtToken(IdentityUser user, IList<string> roles)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(JwtRegisteredClaimNames.Email, user.Email!),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        // Add roles to JWT claims — used for authorization in loan approval
+        foreach (var role in roles)
+            claims.Add(new Claim(ClaimTypes.Role, role));
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],

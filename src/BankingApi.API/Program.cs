@@ -118,6 +118,9 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
+// Seed roles
+await SeedRolesAsync(app);
+
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseMiddleware<CorrelationIdMiddleware>();
@@ -127,3 +130,18 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Seed default roles
+static async Task SeedRolesAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+ 
+    string[] roles = ["Client", "Manager", "Supervisor", "CreditCommittee"];
+ 
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+}
