@@ -11,6 +11,8 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Loan> Loans => Set<Loan>();
+    public DbSet<LoanApprovalHistory> LoanApprovalHistories => Set<LoanApprovalHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,34 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
             e.Property(t => t.Description).HasMaxLength(500);
             e.HasIndex(t => t.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");
             e.HasIndex(t => new { t.AccountId, t.CreatedAt });
+        });
+
+        modelBuilder.Entity<Loan>(e =>
+        {
+            e.HasKey(l => l.Id);
+            e.Property(l => l.ClientId).IsRequired().HasMaxLength(450);
+            e.Property(l => l.Amount).HasPrecision(18, 2);
+            e.Property(l => l.InterestRate).HasPrecision(8, 4);
+            e.Property(l => l.MonthlyPayment).HasPrecision(18, 2);
+            e.Property(l => l.RequiredApprovalRole).IsRequired().HasMaxLength(50);
+            e.Property(l => l.ApprovedBy).HasMaxLength(450);
+            e.Property(l => l.RejectionReason).HasMaxLength(1000);
+            e.HasIndex(l => l.ClientId);
+            e.HasIndex(l => l.Status);
+
+            e.HasMany(l => l.ApprovalHistory)
+             .WithOne()
+             .HasForeignKey(h => h.LoanId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LoanApprovalHistory>(e =>
+        {
+            e.HasKey(h => h.Id);
+            e.Property(h => h.UserId).IsRequired().HasMaxLength(450);
+            e.Property(h => h.Role).IsRequired().HasMaxLength(50);
+            e.Property(h => h.Comment).HasMaxLength(1000);
+            e.HasIndex(h => h.LoanId);
         });
     }
 }

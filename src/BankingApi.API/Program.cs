@@ -6,6 +6,8 @@ using BankingApi.Application.Transactions.Commands;
 using BankingApi.Application.Transactions.Queries;
 using BankingApi.Infrastructure.Persistence;
 using BankingApi.Infrastructure.Repositories;
+using BankingApi.Application.Loans.Commands;
+using BankingApi.Application.Loans.Queries;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Azure.Identity;
 using BankingApi.API.Middleware;
+
 
 var builder = WebApplication.CreateBuilder(args);
 // Application Insights
@@ -100,6 +103,8 @@ builder.Services.AddAuthorization();
 // Repositories
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ILoanRepository, LoanRepository>();
+
 
 // Application handlers
 builder.Services.AddScoped<CreateAccountHandler>();
@@ -108,6 +113,13 @@ builder.Services.AddScoped<DepositHandler>();
 builder.Services.AddScoped<WithdrawHandler>();
 builder.Services.AddScoped<TransferHandler>();
 builder.Services.AddScoped<GetStatementHandler>();
+builder.Services.AddScoped<RequestLoanHandler>();
+builder.Services.AddScoped<ApproveLoanHandler>();
+builder.Services.AddScoped<RejectLoanHandler>();
+builder.Services.AddScoped<CancelLoanHandler>();
+builder.Services.AddScoped<GetLoanHandler>();
+builder.Services.AddScoped<GetMyLoansHandler>();
+builder.Services.AddScoped<GetPendingLoansHandler>();
 
 var app = builder.Build();
 
