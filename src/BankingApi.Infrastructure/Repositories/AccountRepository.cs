@@ -22,6 +22,11 @@ public class AccountRepository : IAccountRepository
             .Include(a => a.Transactions)
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public async Task<Account?> GetByOwnerIdAsync(string ownerId, CancellationToken ct = default)
+        => await _db.Accounts
+            .Include(a => a.Transactions)
+            .FirstOrDefaultAsync(a => a.OwnerId == ownerId, ct);
+
     public async Task AddAsync(Account account, CancellationToken ct = default)
         => await _db.Accounts.AddAsync(account, ct);
 

@@ -120,6 +120,8 @@ builder.Services.AddScoped<CancelLoanHandler>();
 builder.Services.AddScoped<GetLoanHandler>();
 builder.Services.AddScoped<GetMyLoansHandler>();
 builder.Services.AddScoped<GetPendingLoansHandler>();
+builder.Services.AddScoped<GetAccountByOwnerHandler>();
+
 
 var app = builder.Build();
 

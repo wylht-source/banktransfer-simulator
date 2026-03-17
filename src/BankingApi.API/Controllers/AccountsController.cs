@@ -16,15 +16,20 @@ public class AccountsController : ControllerBase
     private readonly CreateAccountHandler _createHandler;
     private readonly GetAccountHandler _getHandler;
     private readonly GetStatementHandler _statementHandler;
+    private readonly GetAccountByOwnerHandler _getByOwnerHandler;
+
 
     public AccountsController(
         CreateAccountHandler createHandler,
         GetAccountHandler getHandler,
-        GetStatementHandler statementHandler)
+        GetStatementHandler statementHandler,
+        GetAccountByOwnerHandler getByOwnerHandler)
     {
         _createHandler = createHandler;
         _getHandler = getHandler;
         _statementHandler = statementHandler;
+        _getByOwnerHandler = getByOwnerHandler;
+
     }
 
     /// <summary>Creates a new bank account for the authenticated user.</summary>
@@ -47,6 +52,19 @@ public class AccountsController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    /// <summary>Returns the authenticated user's account.</summary>
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(GetAccountResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMe(CancellationToken ct)
+    {
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")!;
+
+        var result = await _getByOwnerHandler.HandleAsync(new GetAccountByOwnerQuery(ownerId), ct);
+        return Ok(result);
     }
 
     /// <summary>Returns account details and current balance.</summary>
