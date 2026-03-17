@@ -60,13 +60,20 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMe(CancellationToken ct)
     {
-        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? User.FindFirstValue("sub")!;
+        try
+        {
+            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub")!;
 
-        var result = await _getByOwnerHandler.HandleAsync(new GetAccountByOwnerQuery(ownerId), ct);
-        return Ok(result);
+            var result = await _getByOwnerHandler.HandleAsync(new GetAccountByOwnerQuery(ownerId), ct);
+            return Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
     }
-
+    
     /// <summary>Returns account details and current balance.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(GetAccountResult), StatusCodes.Status200OK)]
