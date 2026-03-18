@@ -10,12 +10,16 @@ public class AccountRepository : IAccountRepository
 {
     private readonly BankingDbContext _db;
     private readonly ILogger<AccountRepository> _logger;
+    
 
     public AccountRepository(BankingDbContext db, ILogger<AccountRepository> logger)
     {
         _db = db;
         _logger = logger;
     }
+
+    public async Task<Account?> GetByAccountNumberAsync(string accountNumber, CancellationToken ct = default)
+    => await _db.Accounts.FirstOrDefaultAsync(a => a.AccountNumber == accountNumber, ct);
 
     public async Task<Account?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await _db.Accounts

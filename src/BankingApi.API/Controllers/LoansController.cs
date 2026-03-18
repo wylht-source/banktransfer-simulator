@@ -19,6 +19,8 @@ public class LoansController : ControllerBase
     private readonly GetLoanHandler _getLoanHandler;
     private readonly GetMyLoansHandler _getMyLoansHandler;
     private readonly GetPendingLoansHandler _getPendingHandler;
+    private readonly GetLoanApprovalDetailsHandler _getApprovalDetailsHandler;
+
 
     public LoansController(
         RequestLoanHandler requestHandler,
@@ -27,7 +29,8 @@ public class LoansController : ControllerBase
         CancelLoanHandler cancelHandler,
         GetLoanHandler getLoanHandler,
         GetMyLoansHandler getMyLoansHandler,
-        GetPendingLoansHandler getPendingHandler)
+        GetPendingLoansHandler getPendingHandler,
+        GetLoanApprovalDetailsHandler getApprovalDetailsHandler)
     {
         _requestHandler = requestHandler;
         _approveHandler = approveHandler;
@@ -36,6 +39,34 @@ public class LoansController : ControllerBase
         _getLoanHandler = getLoanHandler;
         _getMyLoansHandler = getMyLoansHandler;
         _getPendingHandler = getPendingHandler;
+        _getApprovalDetailsHandler = getApprovalDetailsHandler;
+
+    }
+
+    /// <summary>Returns full approval details including payment schedule and bank profitability view.</summary>
+    [HttpGet("{id:guid}/approval-details")]
+    [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
+    [ProducesResponseType(typeof(LoanApprovalDetailsResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetApprovalDetails(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var requesterId   = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
+            var requesterRole = User.FindFirstValue(ClaimTypes.Role)!;
+
+            var result = await _getApprovalDetailsHandler.Handle(
+                new GetLoanApprovalDetailsQuery(id, requesterId, requesterRole), ct);
+
+            return Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return ex.Message.Contains("not found")
+                ? NotFound(new { error = ex.Message })
+                : StatusCode(403, new { error = ex.Message });
+        }
     }
 
     /// <summary>Client requests a new personal loan.</summary>

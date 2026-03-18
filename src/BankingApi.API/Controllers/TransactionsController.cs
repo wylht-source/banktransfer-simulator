@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BankingApi.Application.Interfaces;
 using BankingApi.Application.Transactions.Commands;
 using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
@@ -14,16 +15,21 @@ public class TransactionsController : ControllerBase
     private readonly DepositHandler _depositHandler;
     private readonly WithdrawHandler _withdrawHandler;
     private readonly TransferHandler _transferHandler;
+    private readonly IAccountRepository _accounts;
 
-    public TransactionsController(
-        DepositHandler depositHandler,
-        WithdrawHandler withdrawHandler,
-        TransferHandler transferHandler)
-    {
-        _depositHandler = depositHandler;
-        _withdrawHandler = withdrawHandler;
-        _transferHandler = transferHandler;
-    }
+
+
+public TransactionsController(
+    DepositHandler depositHandler,
+    WithdrawHandler withdrawHandler,
+    TransferHandler transferHandler,
+    IAccountRepository accounts)
+{
+    _depositHandler = depositHandler;
+    _withdrawHandler = withdrawHandler;
+    _transferHandler = transferHandler;
+    _accounts = accounts;
+}
 
     /// <summary>
     /// Deposit funds into an account.
@@ -90,6 +96,7 @@ public class TransactionsController : ControllerBase
     [HttpPost("transfer")]
     [ProducesResponseType(typeof(TransferResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Transfer(
         [FromHeader(Name = "Idempotency-Key")] Guid idempotencyKey,
         [FromBody] TransferRequest request,
@@ -97,9 +104,24 @@ public class TransactionsController : ControllerBase
     {
         try
         {
+            // Resolve destination — accepts both GUID and AccountNumber
+            Domain.Entities.Account? toAccount = Guid.TryParse(request.ToAccountId, out var toGuid)
+                ? await _accounts.GetByIdAsync(toGuid, ct)
+                : await _accounts.GetByAccountNumberAsync(request.ToAccountId, ct);
+
+            if (toAccount is null)
+                return NotFound(new { error = "Destination account not found." });
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
+
             var result = await _transferHandler.HandleAsync(
-                new TransferCommand(request.FromAccountId, request.ToAccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
+                new TransferCommand(
+                    request.FromAccountId,
+                    toAccount.Id,
+                    request.Amount,
+                    request.Description,
+                    idempotencyKey,
+                    userId), ct);
 
             if (result.WasDuplicate)
                 Response.Headers.Append("X-Idempotency-Replayed", "true");
@@ -115,4 +137,4 @@ public class TransactionsController : ControllerBase
 
 public record DepositRequest(Guid AccountId, decimal Amount, string Description);
 public record WithdrawRequest(Guid AccountId, decimal Amount, string Description);
-public record TransferRequest(Guid FromAccountId, Guid ToAccountId, decimal Amount, string Description);
+public record TransferRequest(Guid FromAccountId, string ToAccountId, decimal Amount, string Description);

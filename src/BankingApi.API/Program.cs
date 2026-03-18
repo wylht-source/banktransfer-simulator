@@ -6,6 +6,7 @@ using BankingApi.Application.Transactions.Commands;
 using BankingApi.Application.Transactions.Queries;
 using BankingApi.Infrastructure.Persistence;
 using BankingApi.Infrastructure.Repositories;
+using BankingApi.Infrastructure.Services;
 using BankingApi.Application.Loans.Commands;
 using BankingApi.Application.Loans.Queries;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -15,6 +16,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Azure.Identity;
 using BankingApi.API.Middleware;
+using BankingApi.Application.Loans.Services;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -115,6 +118,8 @@ builder.Services.AddScoped<ILoanRepository, LoanRepository>();
 
 
 // Application handlers
+builder.Services.AddScoped<LoanProfitabilityService>();
+builder.Services.AddScoped<GetLoanApprovalDetailsHandler>();
 builder.Services.AddScoped<CreateAccountHandler>();
 builder.Services.AddScoped<GetAccountHandler>();
 builder.Services.AddScoped<DepositHandler>();
@@ -129,6 +134,8 @@ builder.Services.AddScoped<GetLoanHandler>();
 builder.Services.AddScoped<GetMyLoansHandler>();
 builder.Services.AddScoped<GetPendingLoansHandler>();
 builder.Services.AddScoped<GetAccountByOwnerHandler>();
+
+builder.Services.AddScoped<IIdentityService, IdentityService>();
 
 
 var app = builder.Build();
