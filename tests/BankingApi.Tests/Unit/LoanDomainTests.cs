@@ -25,6 +25,9 @@ public class LoanDomainTests
         committeeLoan.RequiredApprovalRole.Should().Be(Loan.RoleCreditCommittee);
     }
 
+    
+
+
     [Fact]
     public void CreateLoan_ValidData_CalculatesMonthlyPayment()
     {

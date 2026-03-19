@@ -123,12 +123,12 @@ public class GetLoanApprovalDetailsHandler(
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
     private async Task<string> ResolveClientDisplayName(string clientId)
     {
         var name = await identityService.GetDisplayNameAsync(clientId);
         return name ?? clientId;
     }
+
     private static CustomerPaymentViewDto BuildCustomerPaymentView(Loan loan)
     {
         // Due date anchor: ApprovedAt if approved, UtcNow if still pending (estimated)
