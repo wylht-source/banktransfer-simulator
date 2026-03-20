@@ -12,6 +12,7 @@ public record LoanSummaryDto(
     Guid LoanId,
     string ClientId,
     string ClientDisplayName,
+    string LoanType,
     decimal Amount,
     int Installments,
     decimal InterestRateMonthly,
@@ -44,6 +45,17 @@ public record BankProfitabilityViewDto(
     decimal EstimatedNetProfit,
     decimal EstimatedProfitMargin);
 
+public record PayrollSummaryDto(
+    string EmployerName,
+    decimal MonthlySalary,
+    EmploymentStatus EmploymentStatus,
+    decimal ExistingPayrollDeductions,
+    decimal PayrollMarginLimit,
+    decimal AvailablePayrollMargin,
+    decimal MonthlyPayment,
+    decimal RemainingPayrollMargin,
+    decimal MarginUsageAfterApproval);
+
 public record WorkflowHistoryItemDto(
     string Action,
     string PerformedBy,
@@ -55,6 +67,7 @@ public record LoanApprovalDetailsResult(
     LoanSummaryDto LoanSummary,
     CustomerPaymentViewDto CustomerPaymentView,
     BankProfitabilityViewDto BankProfitabilityView,
+    PayrollSummaryDto? PayrollSummary,      // null for PersonalLoan
     IEnumerable<WorkflowHistoryItemDto> WorkflowHistory);
 
 // ── Query ─────────────────────────────────────────────────────────────────────
@@ -67,10 +80,9 @@ public record GetLoanApprovalDetailsQuery(
 // ── Handler ──────────────────────────────────────────────────────────────────
 
 public class GetLoanApprovalDetailsHandler(
-        ILoanRepository loanRepository,
-        LoanProfitabilityService profitabilityService,
-        IIdentityService identityService)
-
+    ILoanRepository loanRepository,
+    LoanProfitabilityService profitabilityService,
+    IIdentityService identityService)
 {
     private static readonly string[] ApproverRoles =
     [
@@ -82,7 +94,6 @@ public class GetLoanApprovalDetailsHandler(
     public async Task<LoanApprovalDetailsResult> Handle(
         GetLoanApprovalDetailsQuery query, CancellationToken ct = default)
     {
-        // Only bank roles can access approval details
         if (!ApproverRoles.Contains(query.RequesterRole))
             throw new DomainException("Access denied. Approval details are restricted to bank roles.");
 
@@ -93,12 +104,15 @@ public class GetLoanApprovalDetailsHandler(
         var profitability     = profitabilityService.Calculate(loan);
         var paymentView       = BuildCustomerPaymentView(loan);
         var workflowHistory   = BuildWorkflowHistory(loan);
+        var loanType          = loan is PayrollLoan ? "Payroll" : "Personal";
+        var payrollSummary    = loan is PayrollLoan pl ? BuildPayrollSummary(pl) : null;
 
         return new LoanApprovalDetailsResult(
             LoanSummary: new LoanSummaryDto(
                 LoanId:              loan.Id,
                 ClientId:            loan.ClientId,
                 ClientDisplayName:   clientDisplayName,
+                LoanType:            loanType,
                 Amount:              loan.Amount,
                 Installments:        loan.Installments,
                 InterestRateMonthly: loan.InterestRate,
@@ -119,10 +133,12 @@ public class GetLoanApprovalDetailsHandler(
                 EstimatedNetProfit:       profitability.EstimatedNetProfit,
                 EstimatedProfitMargin:    profitability.EstimatedProfitMargin),
 
+            PayrollSummary: payrollSummary,
             WorkflowHistory: workflowHistory);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
     private async Task<string> ResolveClientDisplayName(string clientId)
     {
         var name = await identityService.GetDisplayNameAsync(clientId);
@@ -131,7 +147,6 @@ public class GetLoanApprovalDetailsHandler(
 
     private static CustomerPaymentViewDto BuildCustomerPaymentView(Loan loan)
     {
-        // Due date anchor: ApprovedAt if approved, UtcNow if still pending (estimated)
         var isEstimated = loan.Status == LoanStatus.PendingApproval;
         var anchor      = isEstimated ? DateTime.UtcNow : loan.ApprovedAt!.Value;
         var firstDue    = anchor.AddDays(30);
@@ -152,6 +167,17 @@ public class GetLoanApprovalDetailsHandler(
             IsEstimated:          isEstimated,
             PaymentSchedule:      schedule);
     }
+
+    private static PayrollSummaryDto BuildPayrollSummary(PayrollLoan loan) => new(
+        EmployerName:              loan.EmployerName,
+        MonthlySalary:             loan.MonthlySalary,
+        EmploymentStatus:          loan.EmploymentStatus,
+        ExistingPayrollDeductions: loan.ExistingPayrollDeductions,
+        PayrollMarginLimit:        loan.PayrollMarginLimit,
+        AvailablePayrollMargin:    loan.AvailablePayrollMargin,
+        MonthlyPayment:            loan.MonthlyPayment,
+        RemainingPayrollMargin:    loan.RemainingPayrollMargin,
+        MarginUsageAfterApproval:  loan.MarginUsageAfterApproval);
 
     private static IEnumerable<WorkflowHistoryItemDto> BuildWorkflowHistory(Loan loan) =>
         loan.ApprovalHistory

@@ -1,5 +1,6 @@
 using BankingApi.Application.Loans.Commands;
 using BankingApi.Application.Loans.Queries;
+using BankingApi.Domain.Enums;
 using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ namespace BankingApi.API.Controllers;
 public class LoansController : ControllerBase
 {
     private readonly RequestLoanHandler _requestHandler;
+    private readonly RequestPayrollLoanHandler _requestPayrollHandler;
     private readonly ApproveLoanHandler _approveHandler;
     private readonly RejectLoanHandler _rejectHandler;
     private readonly CancelLoanHandler _cancelHandler;
@@ -20,6 +22,8 @@ public class LoansController : ControllerBase
     private readonly GetMyLoansHandler _getMyLoansHandler;
     private readonly GetPendingLoansHandler _getPendingHandler;
     private readonly GetLoanApprovalDetailsHandler _getApprovalDetailsHandler;
+
+    
 
 
     public LoansController(
@@ -30,7 +34,8 @@ public class LoansController : ControllerBase
         GetLoanHandler getLoanHandler,
         GetMyLoansHandler getMyLoansHandler,
         GetPendingLoansHandler getPendingHandler,
-        GetLoanApprovalDetailsHandler getApprovalDetailsHandler)
+        GetLoanApprovalDetailsHandler getApprovalDetailsHandler,
+        RequestPayrollLoanHandler requestPayrollHandler)
     {
         _requestHandler = requestHandler;
         _approveHandler = approveHandler;
@@ -40,7 +45,35 @@ public class LoansController : ControllerBase
         _getMyLoansHandler = getMyLoansHandler;
         _getPendingHandler = getPendingHandler;
         _getApprovalDetailsHandler = getApprovalDetailsHandler;
+        _requestPayrollHandler = requestPayrollHandler;
 
+    }
+
+    /// <summary>Client requests a new payroll loan.</summary>
+    [HttpPost("request-payroll")]
+    [Authorize(Roles = "Client")]
+    [ProducesResponseType(typeof(RequestPayrollLoanResult), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RequestPayroll(
+        [FromBody] RequestPayrollLoanRequest request, CancellationToken ct)
+    {
+        try
+        {
+            var clientId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub")!;
+
+            var result = await _requestPayrollHandler.Handle(
+                new RequestPayrollLoanCommand(
+                    clientId, request.Amount, request.Installments,
+                    request.EmployerName, request.MonthlySalary,
+                    request.EmploymentStatus, request.ExistingPayrollDeductions), ct);
+
+            return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
+        }
+        catch (DomainException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     /// <summary>Returns full approval details including payment schedule and bank profitability view.</summary>
@@ -232,3 +265,11 @@ public class LoansController : ControllerBase
 
 public record RequestLoanRequest(decimal Amount, int Installments);
 public record RejectLoanRequest(string Reason);
+
+public record RequestPayrollLoanRequest(
+    decimal Amount,
+    int Installments,
+    string EmployerName,
+    decimal MonthlySalary,
+    EmploymentStatus EmploymentStatus,
+    decimal ExistingPayrollDeductions);

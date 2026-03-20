@@ -29,11 +29,10 @@ public class RequestLoanHandler(ILoanRepository loanRepository)
 
     public async Task<RequestLoanResult> Handle(RequestLoanCommand command, CancellationToken ct = default)
     {
-        var loan = new Loan(
+        var loan = new PersonalLoan(
             clientId:     command.ClientId,
             amount:       command.Amount,
-            installments: command.Installments,
-            interestRate: MonthlyInterestRate);
+            installments: command.Installments);
 
         await loanRepository.AddAsync(loan, ct);
         await loanRepository.SaveChangesAsync(ct);

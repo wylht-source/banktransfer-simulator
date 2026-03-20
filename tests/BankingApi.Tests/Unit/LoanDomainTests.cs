@@ -9,7 +9,7 @@ public class LoanDomainTests
 {
     // ── Helpers ───────────────────────────────────────────────────────────────
     private static Loan CreateLoan(decimal amount = 5_000m, int installments = 12)
-        => new("client-1", amount, installments, 0.015m);
+        => new PersonalLoan("client-1", amount, installments);
 
     // ── Creation ─────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ public class LoanDomainTests
     [InlineData(200_001)]
     public void CreateLoan_InvalidAmount_ThrowsDomainException(decimal amount)
     {
-        var act = () => new Loan("client-1", amount, 12, 0.015m);
+        var act = () => new PersonalLoan("client-1", amount, 12);
 
         act.Should().Throw<DomainException>().WithMessage("*amount*");
     }
@@ -63,7 +63,7 @@ public class LoanDomainTests
     [InlineData(49)]
     public void CreateLoan_InvalidInstallments_ThrowsDomainException(int installments)
     {
-        var act = () => new Loan("client-1", 5_000m, installments, 0.015m);
+        var act = () => new PersonalLoan("client-1", 5_000m, installments);
 
         act.Should().Throw<DomainException>().WithMessage("*nstallment*");
     }

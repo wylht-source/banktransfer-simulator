@@ -3,52 +3,36 @@ using BankingApi.Domain.Exceptions;
 
 namespace BankingApi.Domain.Entities;
 
-public class Loan
+public abstract class Loan
 {
     // ── Approval thresholds ──────────────────────────────────────────────────
-    private const decimal ManagerLimit    = 20_000m;
-    private const decimal SupervisorLimit = 100_000m;
+    public const decimal ManagerLimit    = 20_000m;
+    public const decimal SupervisorLimit = 100_000m;
 
     // Role name constants — must match ASP.NET Identity seeds
     public const string RoleManager         = "Manager";
     public const string RoleSupervisor      = "Supervisor";
     public const string RoleCreditCommittee = "CreditCommittee";
 
-    // ── Properties ───────────────────────────────────────────────────────────
-    public Guid     Id                   { get; private set; }
-    public string   ClientId             { get; private set; } = null!;
-    public decimal  Amount               { get; private set; }
-    public int      Installments         { get; private set; }
-    public decimal  InterestRate         { get; private set; }   // monthly, e.g. 0.015
-    public decimal  MonthlyPayment       { get; private set; }   // snapshot at creation
-    public LoanStatus Status             { get; private set; }
-    public string   RequiredApprovalRole { get; private set; } = null!;     // immutable after creation
-    public DateTime RequestedAt          { get; private set; }
-    public string?  ApprovedBy           { get; private set; }
-    public DateTime? ApprovedAt          { get; private set; }
-    public string?  RejectionReason      { get; private set; }
+    // ── Common properties ────────────────────────────────────────────────────
+    public Guid      Id                   { get; protected set; }
+    public string    ClientId             { get; protected set; } = null!;
+    public decimal   Amount               { get; protected set; }
+    public int       Installments         { get; protected set; }
+    public decimal   InterestRate         { get; protected set; }
+    public decimal   MonthlyPayment       { get; protected set; }
+    public LoanStatus Status              { get; protected set; }
+    public string    RequiredApprovalRole { get; protected set; } = null!;
+    public DateTime  RequestedAt          { get; protected set; }
+    public string?   ApprovedBy           { get; protected set; }
+    public DateTime? ApprovedAt           { get; protected set; }
+    public string?   RejectionReason      { get; protected set; }
 
     private readonly List<LoanApprovalHistory> _approvalHistory = new();
     public IReadOnlyCollection<LoanApprovalHistory> ApprovalHistory => _approvalHistory.AsReadOnly();
 
     // ── EF Core constructor ──────────────────────────────────────────────────
-    private Loan() { }
-
-    // ── Factory / constructor ────────────────────────────────────────────────
-    public Loan(string clientId, decimal amount, int installments, decimal interestRate)
-    {
-        ValidateCreation(amount, installments);
-
-        Id                   = Guid.NewGuid();
-        ClientId             = clientId;
-        Amount               = amount;
-        Installments         = installments;
-        InterestRate         = interestRate;
-        MonthlyPayment       = CalculatePmt(amount, interestRate, installments);
-        Status               = LoanStatus.PendingApproval;
-        RequiredApprovalRole = DetermineRequiredRole(amount);  // immutable from here
-        RequestedAt          = DateTime.UtcNow;
-    }
+    protected Loan() { }
 
     // ── Domain behaviours ────────────────────────────────────────────────────
 
@@ -106,6 +90,31 @@ public class Loan
             comment:  null));
     }
 
+    // ── Protected helpers ────────────────────────────────────────────────────
+
+    protected void InitializeCommonFields(
+        string clientId, decimal amount, int installments,
+        decimal interestRate, string requiredApprovalRole)
+    {
+        Id                   = Guid.NewGuid();
+        ClientId             = clientId;
+        Amount               = amount;
+        Installments         = installments;
+        InterestRate         = interestRate;
+        MonthlyPayment       = CalculatePmt(amount, interestRate, installments);
+        Status               = LoanStatus.PendingApproval;
+        RequiredApprovalRole = requiredApprovalRole;
+        RequestedAt          = DateTime.UtcNow;
+    }
+
+    protected static string DetermineRequiredRole(decimal amount, decimal supervisorLimit) =>
+        amount switch
+        {
+            <= ManagerLimit                 => RoleManager,
+            var a when a <= supervisorLimit => RoleSupervisor,
+            _                               => RoleCreditCommittee
+        };
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private void EnsureCanTransition()
@@ -125,7 +134,6 @@ public class Loan
                 $"Required: '{RequiredApprovalRole}'.");
     }
 
-    // Hierarchical: higher roles can approve lower-level loans
     private static int GetRoleLevel(string role) => role switch
     {
         RoleManager         => 1,
@@ -134,33 +142,15 @@ public class Loan
         _ => throw new DomainException($"Unknown approval role: '{role}'.")
     };
 
-    private static string DetermineRequiredRole(decimal amount) => amount switch
-    {
-        <= ManagerLimit    => RoleManager,
-        <= SupervisorLimit => RoleSupervisor,
-        _                  => RoleCreditCommittee
-    };
-
-    /// <summary>
-    /// Standard PMT formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]
-    /// </summary>
-    private static decimal CalculatePmt(decimal principal, decimal monthlyRate, int n)
+    /// <summary>Standard PMT formula: M = P * [r(1+r)^n] / [(1+r)^n - 1]</summary>
+    protected static decimal CalculatePmt(decimal principal, decimal monthlyRate, int n)
     {
         if (monthlyRate == 0)
             return Math.Round(principal / n, 2);
 
-        var r = (double)monthlyRate;
+        var r      = (double)monthlyRate;
         var factor = Math.Pow(1 + r, n);
-        var pmt = (double)principal * (r * factor) / (factor - 1);
+        var pmt    = (double)principal * (r * factor) / (factor - 1);
         return Math.Round((decimal)pmt, 2);
-    }
-
-    private static void ValidateCreation(decimal amount, int installments)
-    {
-        if (amount < 1_000m || amount > 200_000m)
-            throw new DomainException("Loan amount must be between 1,000 and 200,000.");
-
-        if (installments < 1 || installments > 48)
-            throw new DomainException("Installments must be between 1 and 48.");
     }
 }

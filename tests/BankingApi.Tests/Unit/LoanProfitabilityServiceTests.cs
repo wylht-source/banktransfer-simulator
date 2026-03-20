@@ -23,7 +23,7 @@ public class LoanProfitabilityServiceTests
     {
         // Create a loan and adjust its role if needed; since Loan auto-determines role,
         // we create with an appropriate amount
-        return new Loan("client-1", amount, installments, 0.015m);
+        return new PersonalLoan("client-1", amount, installments);
     }
 
     // ── Manager Level Tests (Amount ≤ 20,000) ──────────────────────────────
@@ -32,7 +32,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_ReturnsCorrectProfitabilityMetrics()
     {
         // Arrange: Manager level = 10,000
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         loan.Should().NotBeNull();
         loan.RequiredApprovalRole.Should().Be(BankingApi.Domain.Entities.Loan.RoleManager);
 
@@ -53,7 +53,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesFundingCostCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var expectedFundingCost = 10_000m * FundingRateMonthly * 12; // 420
 
         // Act
@@ -67,7 +67,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesOperationalCostCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var expectedOpCost = BaseOperationalCost + (10_000m * OperationalCostRate); // 80 + 70 = 150
 
         // Act
@@ -81,7 +81,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesCapitalChargeCorrectly()
     {
         // Arrange: Manager risk = 0.004
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var expectedCapitalCharge = 10_000m * 0.004m; // 40
 
         // Act
@@ -95,7 +95,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesExpectedCreditLossCorrectly()
     {
         // Arrange: Manager PD = 0.015
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var managerPD = 0.015m;
         var expectedCreditLoss = 10_000m * managerPD * LossGivenDefault; // 82.5
 
@@ -110,7 +110,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesTotalPayableCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var expectedTotalPayable = loan.MonthlyPayment * 12;
 
         // Act
@@ -124,7 +124,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesGrossInterestRevenueCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
         var expectedGrossInterest = (loan.MonthlyPayment * 12) - 10_000m;
 
         // Act
@@ -138,7 +138,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesNetProfitCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -157,7 +157,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_CalculatesProfitMarginCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -171,7 +171,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ManagerLevelLoan_SmallAmount_CalculatesMetrics()
     {
         // Arrange: Small loans might have negative net profit due to fixed costs
-        var smallLoan = new Loan("client-1", 1_000m, 12, 0.015m);
+        var smallLoan = new PersonalLoan("client-1", 1_000m, 12);
 
         // Act
         var result = _service.Calculate(smallLoan);
@@ -188,7 +188,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_SupervisorLevelLoan_ReturnsCorrectProfitabilityMetrics()
     {
         // Arrange: Supervisor level = 50,000
-        var loan = new Loan("client-1", 50_000m, 24, 0.015m);
+        var loan = new PersonalLoan("client-1", 50_000m, 24);
         loan.RequiredApprovalRole.Should().Be(BankingApi.Domain.Entities.Loan.RoleSupervisor);
 
         // Act
@@ -204,7 +204,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_SupervisorLevelLoan_CalculatesExpectedCreditLossWithHigherPD()
     {
         // Arrange: Supervisor PD = 0.035 (higher risk than Manager)
-        var supervisorLoan = new Loan("client-1", 50_000m, 24, 0.015m);
+        var supervisorLoan = new PersonalLoan("client-1", 50_000m, 24);
         var supervisorPD = 0.035m;
         var expectedCreditLoss = 50_000m * supervisorPD * LossGivenDefault;
 
@@ -219,7 +219,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_SupervisorLevelLoan_CalculatesCapitalChargeWithHigherRate()
     {
         // Arrange: Supervisor capital charge rate = 0.008 (higher than Manager's 0.004)
-        var supervisorLoan = new Loan("client-1", 50_000m, 24, 0.015m);
+        var supervisorLoan = new PersonalLoan("client-1", 50_000m, 24);
         var expectedCapitalCharge = 50_000m * 0.008m; // 400
 
         // Act
@@ -233,7 +233,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_SupervisorLevelLoan_HasHigherRiskParameters()
     {
         // Arrange
-        var supervisorLoan = new Loan("client-1", 50_000m, 24, 0.015m);
+        var supervisorLoan = new PersonalLoan("client-1", 50_000m, 24);
 
         // Act
         var supervisorResult = _service.Calculate(supervisorLoan);
@@ -250,7 +250,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_CreditCommitteeLevelLoan_ReturnsCorrectProfitabilityMetrics()
     {
         // Arrange: Credit Committee level = 150,000
-        var loan = new Loan("client-1", 150_000m, 36, 0.015m);
+        var loan = new PersonalLoan("client-1", 150_000m, 36);
         loan.RequiredApprovalRole.Should().Be(BankingApi.Domain.Entities.Loan.RoleCreditCommittee);
 
         // Act
@@ -265,7 +265,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_CreditCommitteeLevelLoan_CalculatesExpectedCreditLossWithHighestPD()
     {
         // Arrange: Credit Committee PD = 0.060 (highest risk)
-        var committeeLoan = new Loan("client-1", 150_000m, 36, 0.015m);
+        var committeeLoan = new PersonalLoan("client-1", 150_000m, 36);
         var committeePD = 0.060m;
         var expectedCreditLoss = 150_000m * committeePD * LossGivenDefault;
 
@@ -280,7 +280,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_CreditCommitteeLevelLoan_CalculatesCapitalChargeWithHighestRate()
     {
         // Arrange: Credit Committee capital charge rate = 0.013 (highest)
-        var committeeLoan = new Loan("client-1", 150_000m, 36, 0.015m);
+        var committeeLoan = new PersonalLoan("client-1", 150_000m, 36);
         var expectedCapitalCharge = 150_000m * 0.013m; // 1950
 
         // Act
@@ -294,7 +294,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_CreditCommitteeLevelLoan_HasHighestRiskParameters()
     {
         // Arrange
-        var committeeLoan = new Loan("client-1", 150_000m, 36, 0.015m);
+        var committeeLoan = new PersonalLoan("client-1", 150_000m, 36);
 
         // Act
         var committeeResult = _service.Calculate(committeeLoan);
@@ -311,7 +311,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_MinimumLoanAmount_CalculatesSuccessfully()
     {
         // Arrange: Minimum valid amount is 1,000
-        var loan = new Loan("client-1", 1_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 1_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -326,7 +326,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_MaximumLoanAmount_CalculatesSuccessfully()
     {
         // Arrange: Maximum valid amount is 200,000
-        var loan = new Loan("client-1", 200_000m, 48, 0.015m);
+        var loan = new PersonalLoan("client-1", 200_000m, 48);
         loan.RequiredApprovalRole.Should().Be(BankingApi.Domain.Entities.Loan.RoleCreditCommittee);
 
         // Act
@@ -341,7 +341,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ShortestInstallmentTerm_CalculatesSuccessfully()
     {
         // Arrange: Minimum installments = 1
-        var loan = new Loan("client-1", 5_000m, 1, 0.015m);
+        var loan = new PersonalLoan("client-1", 5_000m, 1);
 
         // Act
         var result = _service.Calculate(loan);
@@ -356,7 +356,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_LongestInstallmentTerm_CalculatesSuccessfully()
     {
         // Arrange: Maximum installments = 48
-        var loan = new Loan("client-1", 10_000m, 48, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 48);
 
         // Act
         var result = _service.Calculate(loan);
@@ -371,8 +371,8 @@ public class LoanProfitabilityServiceTests
     public void Calculate_LongerTermProducesHigherFundingCost()
     {
         // Arrange
-        var shortTermLoan = new Loan("client-1", 10_000m, 12, 0.015m);
-        var longTermLoan = new Loan("client-1", 10_000m, 36, 0.015m);
+        var shortTermLoan = new PersonalLoan("client-1", 10_000m, 12);
+        var longTermLoan = new PersonalLoan("client-1", 10_000m, 36);
 
         // Act
         var shortResult = _service.Calculate(shortTermLoan);
@@ -386,8 +386,8 @@ public class LoanProfitabilityServiceTests
     public void Calculate_HigherAmountProducesHigherAbsoluteNetProfit()
     {
         // Arrange
-        var smallLoan = new Loan("client-1", 5_000m, 12, 0.015m);
-        var largeLoan = new Loan("client-1", 50_000m, 12, 0.015m);
+        var smallLoan = new PersonalLoan("client-1", 5_000m, 12);
+        var largeLoan = new PersonalLoan("client-1", 50_000m, 12);
 
         // Act
         var smallResult = _service.Calculate(smallLoan);
@@ -403,7 +403,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_AllValuesAreRoundedToTwoDecimals()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -422,7 +422,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ProfitMarginIsRoundedToFourDecimals()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -436,7 +436,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ComponentsSumToNetProfit()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -455,7 +455,7 @@ public class LoanProfitabilityServiceTests
     public void Calculate_ProfitMarginIsCalculatedCorrectly()
     {
         // Arrange
-        var loan = new Loan("client-1", 10_000m, 12, 0.015m);
+        var loan = new PersonalLoan("client-1", 10_000m, 12);
 
         // Act
         var result = _service.Calculate(loan);
@@ -494,9 +494,9 @@ public class LoanProfitabilityServiceTests
     }
 
     // ── Mock Loan for Unknown Role Testing ──────────────────────────────────
-    private class MockLoanWithUnknownRole : Loan
+    private class MockLoanWithUnknownRole : PersonalLoan
     {
-        public MockLoanWithUnknownRole() : base("client-1", 5_000m, 12, 0.015m)
+        public MockLoanWithUnknownRole() : base("client-1", 5_000m, 12)
         {
             // Simulate an unknown role by using reflection to set it
             var requiredRoleProperty = typeof(Loan).GetProperty(nameof(Loan.RequiredApprovalRole));

@@ -127,6 +127,7 @@ builder.Services.AddScoped<WithdrawHandler>();
 builder.Services.AddScoped<TransferHandler>();
 builder.Services.AddScoped<GetStatementHandler>();
 builder.Services.AddScoped<RequestLoanHandler>();
+builder.Services.AddScoped<RequestPayrollLoanHandler>();
 builder.Services.AddScoped<ApproveLoanHandler>();
 builder.Services.AddScoped<RejectLoanHandler>();
 builder.Services.AddScoped<CancelLoanHandler>();

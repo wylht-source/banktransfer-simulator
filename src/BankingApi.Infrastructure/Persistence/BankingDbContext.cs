@@ -45,6 +45,10 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
 
         modelBuilder.Entity<Loan>(e =>
         {
+            e.HasDiscriminator<string>("LoanType")
+            .HasValue<PersonalLoan>("Personal")
+            .HasValue<PayrollLoan>("Payroll");
+
             e.HasKey(l => l.Id);
             e.Property(l => l.ClientId).IsRequired().HasMaxLength(450);
             e.Property(l => l.Amount).HasPrecision(18, 2);
@@ -57,9 +61,16 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
             e.HasIndex(l => l.Status);
 
             e.HasMany(l => l.ApprovalHistory)
-             .WithOne()
-             .HasForeignKey(h => h.LoanId)
-             .OnDelete(DeleteBehavior.Cascade);
+            .WithOne()
+            .HasForeignKey(h => h.LoanId)
+            .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PayrollLoan>(e =>
+        {
+            e.Property(l => l.EmployerName).HasMaxLength(200);
+            e.Property(l => l.MonthlySalary).HasPrecision(18, 2);
+            e.Property(l => l.ExistingPayrollDeductions).HasPrecision(18, 2);
         });
 
         modelBuilder.Entity<LoanApprovalHistory>(e =>
