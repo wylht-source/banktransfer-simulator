@@ -1,27 +1,25 @@
 using BankingApi.Application.Common;
 using BankingApi.Application.Interfaces;
 using BankingApi.Domain.Entities;
+using BankingApi.Domain.Enums;
 
 namespace BankingApi.Application.Loans.Queries;
 
 // ── Query ─────────────────────────────────────────────────────────────────────
-public record GetPendingLoansQuery(
+public record GetDecidedLoansQuery(
     string ApproverRole,
     int Page,
     int PageSize);
 
 // ── Handler ──────────────────────────────────────────────────────────────────
-public class GetPendingLoansHandler(ILoanRepository loanRepository)
+public class GetDecidedLoansHandler(ILoanRepository loanRepository)
 {
-    public async Task<PagedResult<LoanSummaryResult>> Handle(GetPendingLoansQuery query, CancellationToken ct = default)
+    public async Task<PagedResult<LoanSummaryResult>> Handle(
+        GetDecidedLoansQuery query, CancellationToken ct = default)
     {
-        // Hierarchical: approver sees all loans they have authority to action.
-        // Manager sees: Manager
-        // Supervisor sees: Manager + Supervisor
-        // CreditCommittee sees: Manager + Supervisor + CreditCommittee
         var actionableRoles = GetActionableRoles(query.ApproverRole);
 
-        var (loans, totalCount) = await loanRepository.GetPendingByRolesAsync(
+        var (loans, totalCount) = await loanRepository.GetDecidedByRolesAsync(
             actionableRoles,
             query.Page,
             query.PageSize,

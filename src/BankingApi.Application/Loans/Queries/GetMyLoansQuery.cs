@@ -1,5 +1,6 @@
 using BankingApi.Application.Common;
 using BankingApi.Application.Interfaces;
+using BankingApi.Domain.Entities;
 using BankingApi.Domain.Enums;
 
 namespace BankingApi.Application.Loans.Queries;
@@ -12,7 +13,8 @@ public record LoanSummaryResult(
     decimal MonthlyPayment,
     LoanStatus Status,
     string RequiredApprovalRole,
-    DateTime RequestedAt);
+    DateTime RequestedAt,
+    string LoanType);
 
 // ── Query ─────────────────────────────────────────────────────────────────────
 public record GetMyLoansQuery(
@@ -38,7 +40,8 @@ public class GetMyLoansHandler(ILoanRepository loanRepository)
             MonthlyPayment:      l.MonthlyPayment,
             Status:              l.Status,
             RequiredApprovalRole: l.RequiredApprovalRole,
-            RequestedAt:         l.RequestedAt));
+            RequestedAt:         l.RequestedAt,
+            LoanType:            l is PayrollLoan ? "Payroll" : "Personal"));  
 
         return new PagedResult<LoanSummaryResult>(items, query.Page, query.PageSize, totalCount);
     }

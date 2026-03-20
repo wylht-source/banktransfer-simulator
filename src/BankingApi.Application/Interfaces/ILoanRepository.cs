@@ -22,4 +22,10 @@ public interface ILoanRepository
         IEnumerable<string> roles, int page, int pageSize, CancellationToken ct = default);
 
     Task SaveChangesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns Approved and Rejected loans whose RequiredApprovalRole is in the given set.
+    /// </summary>
+    Task<(IEnumerable<Loan> Loans, int TotalCount)> GetDecidedByRolesAsync(
+        IEnumerable<string> roles, int page, int pageSize, CancellationToken ct = default);
 }

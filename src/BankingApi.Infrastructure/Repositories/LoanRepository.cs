@@ -67,6 +67,27 @@ public class LoanRepository : ILoanRepository
         return (loans, totalCount);
     }
 
+    public async Task<(IEnumerable<Loan> Loans, int TotalCount)> GetDecidedByRolesAsync(
+        IEnumerable<string> roles, int page, int pageSize, CancellationToken ct = default)
+    {
+        var roleList = roles.ToList();
+        var decidedStatuses = new[] { LoanStatus.Approved, LoanStatus.Rejected };
+
+        var query = _db.Loans
+            .Where(l => decidedStatuses.Contains(l.Status)
+                    && roleList.Contains(l.RequiredApprovalRole))
+            .OrderByDescending(l => l.ApprovedAt ?? l.RequestedAt);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var loans = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (loans, totalCount);
+    }
+    
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         foreach (var entry in _db.ChangeTracker.Entries<LoanApprovalHistory>())

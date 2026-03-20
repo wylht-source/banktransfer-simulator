@@ -135,6 +135,7 @@ builder.Services.AddScoped<GetLoanHandler>();
 builder.Services.AddScoped<GetMyLoansHandler>();
 builder.Services.AddScoped<GetPendingLoansHandler>();
 builder.Services.AddScoped<GetAccountByOwnerHandler>();
+builder.Services.AddScoped<GetDecidedLoansHandler>();
 
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 
