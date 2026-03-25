@@ -59,6 +59,8 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
             e.Property(l => l.RejectionReason).HasMaxLength(1000);
             e.HasIndex(l => l.ClientId);
             e.HasIndex(l => l.Status);
+            e.Property(l => l.AiAnalysisStatus).HasConversion<int>();
+
 
             e.HasMany(l => l.ApprovalHistory)
             .WithOne()

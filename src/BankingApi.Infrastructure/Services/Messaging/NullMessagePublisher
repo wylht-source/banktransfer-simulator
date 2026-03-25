@@ -1,0 +1,15 @@
+using BankingApi.Application.Interfaces;
+using Microsoft.Extensions.Logging;
+
+namespace BankingApi.Infrastructure.Services.Messaging;
+
+public class NullMessagePublisher(ILogger<NullMessagePublisher> logger) : IMessagePublisher
+{
+    public Task<bool> PublishAsync(string queueName, object message, CancellationToken ct = default)
+    {
+        logger.LogWarning(
+            "NullMessagePublisher: Service Bus not configured. Message to '{Queue}' was not published.",
+            queueName);
+        return Task.FromResult(false);
+    }
+}

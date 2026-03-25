@@ -31,7 +31,10 @@ public class LoanHandlerTests
         var logger = NullLogger<LoanRepository>.Instance;
         _loanRepo = new LoanRepository(_db, logger);
 
-        _requestHandler    = new RequestLoanHandler(_loanRepo);
+        var nullMessagePublisher = new BankingApi.Infrastructure.Services.Messaging.NullMessagePublisher(
+            NullLogger<BankingApi.Infrastructure.Services.Messaging.NullMessagePublisher>.Instance);
+
+        _requestHandler    = new RequestLoanHandler(_loanRepo, nullMessagePublisher);
         _approveHandler    = new ApproveLoanHandler(_loanRepo);
         _rejectHandler     = new RejectLoanHandler(_loanRepo);
         _cancelHandler     = new CancelLoanHandler(_loanRepo);

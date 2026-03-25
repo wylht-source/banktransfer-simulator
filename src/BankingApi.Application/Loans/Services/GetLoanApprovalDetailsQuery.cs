@@ -19,6 +19,7 @@ public record LoanSummaryDto(
     decimal MonthlyPayment,
     DateTime RequestedAt,
     string RequiredApprovalRole,
+    AiAnalysisStatus AiAnalysisStatus,
     LoanStatus Status);
 
 public record PaymentScheduleItemDto(
@@ -119,6 +120,7 @@ public class GetLoanApprovalDetailsHandler(
                 MonthlyPayment:      loan.MonthlyPayment,
                 RequestedAt:         loan.RequestedAt,
                 RequiredApprovalRole: loan.RequiredApprovalRole,
+                AiAnalysisStatus: loan.AiAnalysisStatus,
                 Status:              loan.Status),
 
             CustomerPaymentView: paymentView,

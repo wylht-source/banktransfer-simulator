@@ -4,8 +4,7 @@ using BankingApi.Domain.Exceptions;
 namespace BankingApi.Domain.Entities;
 
 public abstract class Loan
-{
-    // ── Approval thresholds ──────────────────────────────────────────────────
+{    // ── Approval thresholds ──────────────────────────────────────────────────
     public const decimal ManagerLimit    = 20_000m;
     public const decimal SupervisorLimit = 100_000m;
 
@@ -27,6 +26,7 @@ public abstract class Loan
     public string?   ApprovedBy           { get; protected set; }
     public DateTime? ApprovedAt           { get; protected set; }
     public string?   RejectionReason      { get; protected set; }
+    public AiAnalysisStatus AiAnalysisStatus { get; protected set; } = AiAnalysisStatus.NotRequested;
 
     private readonly List<LoanApprovalHistory> _approvalHistory = new();
     public IReadOnlyCollection<LoanApprovalHistory> ApprovalHistory => _approvalHistory.AsReadOnly();
@@ -91,6 +91,11 @@ public abstract class Loan
     }
 
     // ── Protected helpers ────────────────────────────────────────────────────
+
+    public void UpdateAiAnalysisStatus(AiAnalysisStatus status)
+    {
+        AiAnalysisStatus = status;
+    }
 
     protected void InitializeCommonFields(
         string clientId, decimal amount, int installments,

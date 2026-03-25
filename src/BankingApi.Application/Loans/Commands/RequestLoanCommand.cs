@@ -1,6 +1,7 @@
+using BankingApi.Application.Interfaces;
+using BankingApi.Application.Loans.Messages;
 using BankingApi.Domain.Entities;
 using BankingApi.Domain.Enums;
-using BankingApi.Application.Interfaces;
 
 namespace BankingApi.Application.Loans.Commands;
 
@@ -19,13 +20,15 @@ public record RequestLoanResult(
     decimal MonthlyPayment,
     string RequiredApprovalRole,
     LoanStatus Status,
+    AiAnalysisStatus AiAnalysisStatus,
     DateTime RequestedAt);
 
 // ── Handler ──────────────────────────────────────────────────────────────────
-public class RequestLoanHandler(ILoanRepository loanRepository)
+public class RequestLoanHandler(
+    ILoanRepository loanRepository,
+    IMessagePublisher messagePublisher)
 {
-    // In a real system this would come from a product/rate configuration service.
-    private const decimal MonthlyInterestRate = 0.015m;
+    private const string LoanAnalysisQueue = "loan-analysis-requests";
 
     public async Task<RequestLoanResult> Handle(RequestLoanCommand command, CancellationToken ct = default)
     {
@@ -37,6 +40,16 @@ public class RequestLoanHandler(ILoanRepository loanRepository)
         await loanRepository.AddAsync(loan, ct);
         await loanRepository.SaveChangesAsync(ct);
 
+        // Publish to Service Bus — non-blocking, AI enrichment must not block loan creation
+        var message   = LoanAnalysisRequestedMapper.Map(loan);
+        var published = await messagePublisher.PublishAsync(LoanAnalysisQueue, message, ct);
+
+        loan.UpdateAiAnalysisStatus(published
+            ? AiAnalysisStatus.Pending
+            : AiAnalysisStatus.Failed);
+
+        await loanRepository.SaveChangesAsync(ct);
+
         return new RequestLoanResult(
             LoanId:              loan.Id,
             Amount:              loan.Amount,
@@ -45,6 +58,7 @@ public class RequestLoanHandler(ILoanRepository loanRepository)
             MonthlyPayment:      loan.MonthlyPayment,
             RequiredApprovalRole: loan.RequiredApprovalRole,
             Status:              loan.Status,
+            AiAnalysisStatus:    loan.AiAnalysisStatus,
             RequestedAt:         loan.RequestedAt);
     }
 }

@@ -7,6 +7,7 @@ using BankingApi.Application.Transactions.Queries;
 using BankingApi.Infrastructure.Persistence;
 using BankingApi.Infrastructure.Repositories;
 using BankingApi.Infrastructure.Services;
+using BankingApi.Infrastructure.Services.Messaging; 
 using BankingApi.Application.Loans.Commands;
 using BankingApi.Application.Loans.Queries;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -17,7 +18,7 @@ using Microsoft.OpenApi.Models;
 using Azure.Identity;
 using BankingApi.API.Middleware;
 using BankingApi.Application.Loans.Services;
-
+using Azure.Messaging.ServiceBus;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +36,20 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
+// Service Bus
+var serviceBusConnection = builder.Configuration["ServiceBus:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(serviceBusConnection))
+{
+    builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnection));
+    builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
+}
+else
+{
+    // Fallback for local development — no Service Bus configured
+    builder.Services.AddScoped<IMessagePublisher, NullMessagePublisher>();
+}
+
 
 // Swagger with JWT support
 builder.Services.AddEndpointsApiExplorer();
