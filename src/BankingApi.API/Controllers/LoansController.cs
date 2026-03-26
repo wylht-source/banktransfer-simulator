@@ -24,6 +24,8 @@ public class LoansController : ControllerBase
     private readonly GetPendingLoansHandler _getPendingHandler;
     private readonly GetDecidedLoansHandler _getDecidedHandler;
     private readonly GetLoanApprovalDetailsHandler _getApprovalDetailsHandler;
+    private readonly RetryAiAnalysisHandler _retryAiAnalysisHandler;
+
 
     public LoansController(
         RequestLoanHandler requestHandler,
@@ -35,7 +37,8 @@ public class LoansController : ControllerBase
         GetMyLoansHandler getMyLoansHandler,
         GetPendingLoansHandler getPendingHandler,
         GetDecidedLoansHandler getDecidedHandler,
-        GetLoanApprovalDetailsHandler getApprovalDetailsHandler)
+        GetLoanApprovalDetailsHandler getApprovalDetailsHandler,
+        RetryAiAnalysisHandler retryAiAnalysisHandler)
     {
         _requestHandler            = requestHandler;
         _requestPayrollHandler     = requestPayrollHandler;
@@ -47,6 +50,7 @@ public class LoansController : ControllerBase
         _getPendingHandler         = getPendingHandler;
         _getDecidedHandler         = getDecidedHandler;
         _getApprovalDetailsHandler = getApprovalDetailsHandler;
+        _retryAiAnalysisHandler = retryAiAnalysisHandler;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -172,6 +176,29 @@ public class LoansController : ControllerBase
 
     // ── Approver endpoints ────────────────────────────────────────────────────
 
+    /// <summary>Retries AI risk analysis message publishing for a loan.</summary>
+    [HttpPost("{id:guid}/retry-ai-analysis")]
+    [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
+    [ProducesResponseType(typeof(RetryAiAnalysisResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RetryAiAnalysis(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _retryAiAnalysisHandler.Handle(
+                new RetryAiAnalysisCommand(id), ct);
+
+            return Ok(result);
+        }
+        catch (DomainException ex)
+        {
+            return ex.Message.Contains("not found")
+                ? NotFound(new { error = ex.Message })
+                : BadRequest(new { error = ex.Message });
+        }
+    }
+
     /// <summary>Returns pending loans the authenticated approver has authority to action.</summary>
     [HttpGet("pending")]
     [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
@@ -186,6 +213,8 @@ public class LoansController : ControllerBase
 
         return Ok(result);
     }
+
+    
 
     /// <summary>Returns approved and rejected loans within the approver's authority.</summary>
     [HttpGet("decided")]

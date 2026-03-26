@@ -50,6 +50,8 @@ else
     builder.Services.AddScoped<IMessagePublisher, NullMessagePublisher>();
 }
 
+builder.Services.AddScoped<RetryAiAnalysisHandler>();
+
 
 // Swagger with JWT support
 builder.Services.AddEndpointsApiExplorer();

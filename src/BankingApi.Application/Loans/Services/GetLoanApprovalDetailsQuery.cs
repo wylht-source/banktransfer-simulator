@@ -20,7 +20,9 @@ public record LoanSummaryDto(
     DateTime RequestedAt,
     string RequiredApprovalRole,
     AiAnalysisStatus AiAnalysisStatus,
-    LoanStatus Status);
+    LoanStatus Status,
+    DateTime? AiAnalysisRequestedAt
+);
 
 public record PaymentScheduleItemDto(
     int InstallmentNumber,
@@ -121,6 +123,7 @@ public class GetLoanApprovalDetailsHandler(
                 RequestedAt:         loan.RequestedAt,
                 RequiredApprovalRole: loan.RequiredApprovalRole,
                 AiAnalysisStatus: loan.AiAnalysisStatus,
+                AiAnalysisRequestedAt: loan.AiAnalysisRequestedAt,
                 Status:              loan.Status),
 
             CustomerPaymentView: paymentView,

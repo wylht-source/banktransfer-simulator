@@ -27,6 +27,8 @@ public abstract class Loan
     public DateTime? ApprovedAt           { get; protected set; }
     public string?   RejectionReason      { get; protected set; }
     public AiAnalysisStatus AiAnalysisStatus { get; protected set; } = AiAnalysisStatus.NotRequested;
+    public DateTime? AiAnalysisRequestedAt { get; protected set; }
+
 
     private readonly List<LoanApprovalHistory> _approvalHistory = new();
     public IReadOnlyCollection<LoanApprovalHistory> ApprovalHistory => _approvalHistory.AsReadOnly();
@@ -51,6 +53,13 @@ public abstract class Loan
             role:     approverRole,
             decision: LoanDecision.Approved,
             comment:  null));
+    }
+
+    public void UpdateAiAnalysisStatus(AiAnalysisStatus status)
+    {
+        AiAnalysisStatus = status;
+        if (status == AiAnalysisStatus.Pending || status == AiAnalysisStatus.Failed)
+            AiAnalysisRequestedAt = DateTime.UtcNow;
     }
 
     public void Reject(string rejecterId, string rejecterRole, string reason)
@@ -91,11 +100,6 @@ public abstract class Loan
     }
 
     // ── Protected helpers ────────────────────────────────────────────────────
-
-    public void UpdateAiAnalysisStatus(AiAnalysisStatus status)
-    {
-        AiAnalysisStatus = status;
-    }
 
     protected void InitializeCommonFields(
         string clientId, decimal amount, int installments,

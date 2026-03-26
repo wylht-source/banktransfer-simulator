@@ -60,6 +60,8 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
             e.HasIndex(l => l.ClientId);
             e.HasIndex(l => l.Status);
             e.Property(l => l.AiAnalysisStatus).HasConversion<int>();
+            e.Property(l => l.AiAnalysisRequestedAt);
+
 
 
             e.HasMany(l => l.ApprovalHistory)
