@@ -115,6 +115,17 @@ public class LoanDomainTests
     }
 
     [Fact]
+    public void Reject_AlreadyRejected_ThrowsDomainException()
+    {
+        var loan = CreateLoan(amount: 10_000m);
+        loan.Reject("manager-1", Loan.RoleManager, "Too risky.");
+
+        var act = () => loan.Reject("manager-1", Loan.RoleManager, "Too risky again.");
+
+        act.Should().Throw<DomainException>().WithMessage("*status*");
+    }
+
+    [Fact]
     public void Approve_AddsEntryToApprovalHistory()
     {
         var loan = CreateLoan(amount: 10_000m);

@@ -24,12 +24,12 @@ public TransactionsController(
     WithdrawHandler withdrawHandler,
     TransferHandler transferHandler,
     IAccountRepository accounts)
-{
-    _depositHandler = depositHandler;
-    _withdrawHandler = withdrawHandler;
-    _transferHandler = transferHandler;
-    _accounts = accounts;
-}
+    {
+        _depositHandler = depositHandler;
+        _withdrawHandler = withdrawHandler;
+        _transferHandler = transferHandler;
+        _accounts = accounts;
+    }
 
     /// <summary>
     /// Deposit funds into an account.

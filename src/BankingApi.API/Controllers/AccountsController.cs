@@ -29,7 +29,6 @@ public class AccountsController : ControllerBase
         _getHandler = getHandler;
         _statementHandler = statementHandler;
         _getByOwnerHandler = getByOwnerHandler;
-
     }
 
     /// <summary>Creates a new bank account for the authenticated user.</summary>

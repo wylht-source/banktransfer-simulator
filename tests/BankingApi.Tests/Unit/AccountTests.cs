@@ -28,6 +28,14 @@ public class AccountTests
     }
 
     [Fact]
+    public void Create_EmptyOwnerId_ThrowsDomainException()
+    {
+        var act = () => Account.Create("Sergio", "");
+
+        act.Should().Throw<DomainException>().WithMessage("*required*");
+    }
+
+    [Fact]
     public void Deposit_ValidAmount_IncreasesBalance()
     {
         var account = Account.Create("Sergio", DefaultOwnerId);
@@ -54,6 +62,29 @@ public class AccountTests
         var act = () => account.Deposit(-100m, "Invalid");
 
         act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void Withdraw_ZeroAmount_ThrowsDomainException()
+    {
+        var account = Account.Create("Sergio", DefaultOwnerId);
+        account.Deposit(500m, "Setup");
+
+        var act = () => account.Withdraw(0m, "Zero");
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void Withdraw_WithIdempotencyKey_StoresKeyOnTransaction()
+    {
+        var account = Account.Create("Sergio", DefaultOwnerId);
+        account.Deposit(500m, "Setup");
+        var key = Guid.NewGuid();
+
+        account.Withdraw(100m, "Rent", idempotencyKey: key);
+
+        account.Transactions.Last().IdempotencyKey.Should().Be(key);
     }
 
     [Fact]

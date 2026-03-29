@@ -13,6 +13,7 @@
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="2.2.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="Moq" Version="4.20.70" />
@@ -28,6 +29,7 @@
     <ProjectReference Include="..\..\src\BankingApi.Domain\BankingApi.Domain.csproj" />
     <ProjectReference Include="..\..\src\BankingApi.Application\BankingApi.Application.csproj" />
     <ProjectReference Include="..\..\src\BankingApi.Infrastructure\BankingApi.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\BankingApi.API\BankingApi.API.csproj" />
   </ItemGroup>
 
 </Project>

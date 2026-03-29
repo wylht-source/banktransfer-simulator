@@ -14,18 +14,6 @@ public class LoanProfitabilityServiceTests
     private const decimal BaseOperationalCost = 80m;
     private const decimal OperationalCostRate = 0.007m;
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static Loan CreateLoanWithRole(
-        decimal amount,
-        int installments,
-        string requiredRole)
-    {
-        // Create a loan and adjust its role if needed; since Loan auto-determines role,
-        // we create with an appropriate amount
-        return new PersonalLoan("client-1", amount, installments);
-    }
-
     // ── Manager Level Tests (Amount ≤ 20,000) ──────────────────────────────
 
     [Fact]

@@ -212,9 +212,7 @@ public class LoansController : ControllerBase
             new GetPendingLoansQuery(HighestRole, page, pageSize), ct);
 
         return Ok(result);
-    }
-
-    
+    }    
 
     /// <summary>Returns approved and rejected loans within the approver's authority.</summary>
     [HttpGet("decided")]
