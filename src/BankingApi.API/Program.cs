@@ -19,6 +19,9 @@ using Azure.Identity;
 using BankingApi.API.Middleware;
 using BankingApi.Application.Loans.Services;
 using Azure.Messaging.ServiceBus;
+using BankingApi.Infrastructure.Services.Blob;
+using BankingApi.Application.LoanDocuments.Commands;
+using BankingApi.Application.LoanDocuments.Queries;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +33,11 @@ if (builder.Environment.IsProduction())
     var keyVaultUri = new Uri("https://kv-banking-api.vault.azure.net/");
     builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
 }
+
+// Blob Storage
+builder.Services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
+builder.Services.AddScoped<ILoanDocumentRepository, LoanDocumentRepository>();
+
 
 // Controllers + JSON enum serialization
 builder.Services.AddControllers()
@@ -154,6 +162,9 @@ builder.Services.AddScoped<GetMyLoansHandler>();
 builder.Services.AddScoped<GetPendingLoansHandler>();
 builder.Services.AddScoped<GetAccountByOwnerHandler>();
 builder.Services.AddScoped<GetDecidedLoansHandler>();
+builder.Services.AddScoped<UploadLoanDocumentHandler>();
+builder.Services.AddScoped<GetLoanDocumentsHandler>();
+builder.Services.AddScoped<GetDocumentDownloadUriHandler>();
 
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 

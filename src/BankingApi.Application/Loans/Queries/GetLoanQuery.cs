@@ -26,6 +26,8 @@ public record LoanDetailResult(
     string? ApprovedBy,
     DateTime? ApprovedAt,
     string? RejectionReason,
+    string LoanType,
+    AiAnalysisStatus AiAnalysisStatus,
     IEnumerable<LoanApprovalHistoryDto> ApprovalHistory);
 
 // ── Query ─────────────────────────────────────────────────────────────────────
@@ -72,6 +74,8 @@ public class GetLoanHandler(ILoanRepository loanRepository)
         ApprovedBy:          loan.ApprovedBy,
         ApprovedAt:          loan.ApprovedAt,
         RejectionReason:     loan.RejectionReason,
+        LoanType:            loan is PayrollLoan ? "Payroll" : "Personal",
+        AiAnalysisStatus:    loan.AiAnalysisStatus,
         ApprovalHistory:     loan.ApprovalHistory.Select(h => new LoanApprovalHistoryDto(
             h.UserId, h.Role, h.Decision, h.DecisionAt, h.Comment)));
 }

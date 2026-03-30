@@ -13,6 +13,7 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Loan> Loans => Set<Loan>();
     public DbSet<LoanApprovalHistory> LoanApprovalHistories => Set<LoanApprovalHistory>();
+    public DbSet<LoanDocument> LoanDocuments => Set<LoanDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,19 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
              .WithOne()
              .HasForeignKey(t => t.AccountId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LoanDocument>(e =>
+        {
+            e.HasKey(d => d.Id);
+            e.Property(d => d.UploadedByUserId).IsRequired().HasMaxLength(450);
+            e.Property(d => d.BlobPath).IsRequired().HasMaxLength(500);
+            e.Property(d => d.OriginalFileName).IsRequired().HasMaxLength(255);
+            e.Property(d => d.ContentType).IsRequired().HasMaxLength(100);
+            e.Property(d => d.DocumentType).HasMaxLength(100);
+            e.Property(d => d.StorageProvider).IsRequired().HasMaxLength(50);
+            e.Property(d => d.Sha256).HasMaxLength(64);
+            e.HasIndex(d => d.LoanId);
         });
 
         modelBuilder.Entity<Transaction>(e =>
