@@ -37,7 +37,7 @@ public class LoansControllerTests
             new GetPendingLoansHandler(loanRepo),
             new GetDecidedLoansHandler(loanRepo),
             new GetLoanApprovalDetailsHandler(loanRepo, new LoanProfitabilityService(), mockIdentity.Object),
-            new RetryAiAnalysisHandler(loanRepo, publisher));
+            new RetryAiAnalysisHandler(loanRepo, new Mock<ILoanDocumentRepository>().Object, publisher));
 
         controller.ControllerContext = new ControllerContext
         {

@@ -10,12 +10,14 @@ public record RetryAiAnalysisCommand(Guid LoanId);
 
 // ── Result ───────────────────────────────────────────────────────────────────
 public record RetryAiAnalysisResult(
-    Guid LoanId,
-    AiAnalysisStatus AiAnalysisStatus);
+    Guid             LoanId,
+    AiAnalysisStatus AiAnalysisStatus,
+    int              DocumentCount);
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 public class RetryAiAnalysisHandler(
     ILoanRepository loanRepository,
+    ILoanDocumentRepository documentRepository,
     IMessagePublisher messagePublisher)
 {
     private const string LoanAnalysisQueue = "loan-analysis-requests";
@@ -29,7 +31,15 @@ public class RetryAiAnalysisHandler(
         if (loan.AiAnalysisStatus == AiAnalysisStatus.Completed)
             throw new DomainException("AI analysis is already completed for this loan.");
 
-        var message   = LoanAnalysisRequestedMapper.Map(loan);
+        // Fetch real document paths — retry is the moment we have all documents
+        var documents        = await documentRepository.GetByLoanIdAsync(command.LoanId, ct);
+        var documentList     = documents.ToList();
+        var documentPaths    = documentList.Select(d => d.BlobPath).ToList();
+        var hasDocuments     = documentList.Count > 0;
+
+        // Build message with real document references
+        var message = LoanAnalysisRequestedMapper.Map(loan, documentPaths, hasDocuments);
+
         var published = await messagePublisher.PublishAsync(LoanAnalysisQueue, message, ct);
 
         loan.UpdateAiAnalysisStatus(published
@@ -40,6 +50,7 @@ public class RetryAiAnalysisHandler(
 
         return new RetryAiAnalysisResult(
             LoanId:           loan.Id,
-            AiAnalysisStatus: loan.AiAnalysisStatus);
+            AiAnalysisStatus: loan.AiAnalysisStatus,
+            DocumentCount:    documentList.Count);
     }
 }

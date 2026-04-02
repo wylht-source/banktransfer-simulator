@@ -1,4 +1,6 @@
+using Azure.Identity;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 using Azure.Storage.Sas;
 using BankingApi.Application.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -17,12 +19,37 @@ public class AzureBlobStorageService : IBlobStorageService
     {
         _logger = logger;
 
-        var connectionString = configuration["BlobStorage:ConnectionString"]
-            ?? throw new InvalidOperationException("BlobStorage:ConnectionString is not configured.");
+        var containerName      = configuration["BlobStorage:ContainerName"] ?? "loan-documents";
+        var connectionString   = configuration["BlobStorage:ConnectionString"];
+        var storageAccountUri  = configuration["BlobStorage:AccountUri"];
 
-        var containerName = configuration["BlobStorage:ContainerName"] ?? "loan-documents";
+        if (!string.IsNullOrWhiteSpace(storageAccountUri))
+        {
+            // Production — use Managed Identity (System-Assigned)
+            // No secrets needed — DefaultAzureCredential resolves via Managed Identity on Azure
+            var serviceClient = new BlobServiceClient(
+                new Uri(storageAccountUri),
+                new DefaultAzureCredential());
 
-        _container = new BlobContainerClient(connectionString, containerName);
+            _container = serviceClient.GetBlobContainerClient(containerName);
+
+            _logger.LogInformation(
+                "BlobStorage: using Managed Identity for account '{Uri}'", storageAccountUri);
+        }
+        else if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            // Local development — use connection string (Azurite)
+            _container = new BlobContainerClient(connectionString, containerName);
+
+            _logger.LogInformation(
+                "BlobStorage: using connection string (local/Azurite)");
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                "BlobStorage is not configured. Set either 'BlobStorage:AccountUri' (production) " +
+                "or 'BlobStorage:ConnectionString' (local development).");
+        }
     }
 
     public async Task<string> UploadAsync(
@@ -33,8 +60,7 @@ public class AzureBlobStorageService : IBlobStorageService
     {
         await _container.CreateIfNotExistsAsync(cancellationToken: ct);
 
-        var blobClient = _container.GetBlobClient(blobPath);
-
+        var blobClient    = _container.GetBlobClient(blobPath);
         var uploadOptions = new Azure.Storage.Blobs.Models.BlobUploadOptions
         {
             HttpHeaders = new Azure.Storage.Blobs.Models.BlobHttpHeaders
@@ -57,9 +83,9 @@ public class AzureBlobStorageService : IBlobStorageService
     {
         var blobClient = _container.GetBlobClient(blobPath);
 
-        // Check if we can generate SAS (requires SharedKey credentials — not available with connection string "UseDevelopmentStorage=true" in all SDKs)
         if (blobClient.CanGenerateSasUri)
         {
+            // Works with SharedKey credentials (connection string)
             var sasBuilder = new BlobSasBuilder
             {
                 BlobContainerName = _container.Name,
@@ -72,12 +98,24 @@ public class AzureBlobStorageService : IBlobStorageService
             return blobClient.GenerateSasUri(sasBuilder).ToString();
         }
 
-        // Fallback for Azurite local development — return direct URI
-        // Azurite does not require SAS for local dev
-        _logger.LogWarning(
-            "Cannot generate SAS URI for blob '{BlobPath}'. Returning direct URI (local development only).",
-            blobPath);
+        // Managed Identity — use User Delegation SAS
+        // Requires Storage Blob Data Contributor role on the Managed Identity
+        var serviceClient     = _container.GetParentBlobServiceClient();
+        var delegationKey     = await serviceClient.GetUserDelegationKeyAsync(
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.Add(expiry),
+            ct);
 
-            return await Task.FromResult(blobClient.Uri.ToString());
+        var udSasBuilder = new BlobSasBuilder
+        {
+            BlobContainerName = _container.Name,
+            BlobName          = blobPath,
+            Resource          = "b",
+            ExpiresOn         = DateTimeOffset.UtcNow.Add(expiry)
+        };
+        udSasBuilder.SetPermissions(BlobSasPermissions.Read);
+
+        var sasUri = blobClient.GenerateSasUri(udSasBuilder);
+        return sasUri.ToString();
     }
 }
