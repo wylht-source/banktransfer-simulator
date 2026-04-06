@@ -46,15 +46,25 @@ builder.Services.AddControllers()
             new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
 // Service Bus
+var serviceBusNamespace = builder.Configuration["ServiceBus:FullyQualifiedNamespace"];
 var serviceBusConnection = builder.Configuration["ServiceBus:ConnectionString"];
-if (!string.IsNullOrWhiteSpace(serviceBusConnection))
+
+if (!string.IsNullOrWhiteSpace(serviceBusNamespace))
 {
+    // Produção — Managed Identity
+    builder.Services.AddSingleton(
+        new ServiceBusClient(serviceBusNamespace, new DefaultAzureCredential()));
+    builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
+}
+else if (!string.IsNullOrWhiteSpace(serviceBusConnection))
+{
+    // Local — connection string
     builder.Services.AddSingleton(new ServiceBusClient(serviceBusConnection));
     builder.Services.AddScoped<IMessagePublisher, ServiceBusMessagePublisher>();
 }
 else
 {
-    // Fallback for local development — no Service Bus configured
+    // Sem Service Bus configurado — NullMessagePublisher
     builder.Services.AddScoped<IMessagePublisher, NullMessagePublisher>();
 }
 
@@ -181,8 +191,11 @@ using (var scope = app.Services.CreateScope())
 // Seed roles
 await SeedRolesAsync(app);
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (!app.Environment.IsProduction())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 app.UseCors("AllowFrontend");
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
