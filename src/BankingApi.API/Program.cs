@@ -22,7 +22,9 @@ using Azure.Messaging.ServiceBus;
 using BankingApi.Infrastructure.Services.Blob;
 using BankingApi.Application.LoanDocuments.Commands;
 using BankingApi.Application.LoanDocuments.Queries;
-
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Http.Timeouts;
 
 var builder = WebApplication.CreateBuilder(args);
 // Application Insights
@@ -147,6 +149,56 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddAuthorization();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("login-policy", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(60);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter("register-policy", opt =>
+    {
+        opt.PermitLimit = 3;
+        opt.Window = TimeSpan.FromMinutes(60);
+        opt.QueueLimit = 0;
+    });
+
+    options.AddFixedWindowLimiter("upload-policy", opt =>
+    {
+        opt.PermitLimit = 10;
+        opt.Window = TimeSpan.FromMinutes(60);
+        opt.QueueLimit = 0;
+    });
+
+    options.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { error = "Too many requests. Please try again later." }, ct);
+    };
+});
+
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.DefaultPolicy = new RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+
+    options.AddPolicy("upload-timeout", new RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(120)
+    });
+
+    options.AddPolicy("query-timeout", new RequestTimeoutPolicy
+    {
+        Timeout = TimeSpan.FromSeconds(15)
+    });
+});
+
 // Repositories
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
@@ -197,6 +249,8 @@ if (!app.Environment.IsProduction())
     app.UseSwaggerUI();
 }
 app.UseCors("AllowFrontend");
+app.UseRateLimiter();
+app.UseRequestTimeouts();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();

@@ -4,6 +4,7 @@ using BankingApi.Domain.Entities;
 using BankingApi.Domain.Enums;
 using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -117,6 +118,7 @@ public class LoansController : ControllerBase
 
     /// <summary>Returns paginated list of the authenticated client's loans.</summary>
     [HttpGet("my-loans")]
+    [RequestTimeout("query-timeout")]
     [Authorize(Roles = "Client")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMyLoans(
@@ -155,6 +157,7 @@ public class LoansController : ControllerBase
 
     /// <summary>Returns loan details including approval history.</summary>
     [HttpGet("{id:guid}")]
+    [RequestTimeout("query-timeout")]
     [ProducesResponseType(typeof(LoanDetailResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -201,6 +204,7 @@ public class LoansController : ControllerBase
 
     /// <summary>Returns pending loans the authenticated approver has authority to action.</summary>
     [HttpGet("pending")]
+    [RequestTimeout("query-timeout")]
     [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPending(
@@ -216,6 +220,7 @@ public class LoansController : ControllerBase
 
     /// <summary>Returns approved and rejected loans within the approver's authority.</summary>
     [HttpGet("decided")]
+    [RequestTimeout("query-timeout")]
     [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDecided(
@@ -231,6 +236,7 @@ public class LoansController : ControllerBase
 
     /// <summary>Returns full approval details including payment schedule and bank profitability view.</summary>
     [HttpGet("{id:guid}/approval-details")]
+    [RequestTimeout("query-timeout")]
     [Authorize(Roles = "Manager,Supervisor,CreditCommittee")]
     [ProducesResponseType(typeof(LoanApprovalDetailsResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

@@ -5,6 +5,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.RateLimiting;
+
 
 namespace BankingApi.API.Controllers;
 
@@ -23,6 +25,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Register a new user. All users are assigned the Client role by default.</summary>
     [HttpPost("register")]
+    [EnableRateLimiting("register-policy")]
     [ProducesResponseType(typeof(RegisterResult), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register([FromBody] RegisterCommand cmd)
@@ -41,6 +44,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Login and receive a JWT token.</summary>
     [HttpPost("login")]
+    [EnableRateLimiting("login-policy")]
     [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginCommand cmd)

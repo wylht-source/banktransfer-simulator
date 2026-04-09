@@ -2,7 +2,9 @@ using BankingApi.Application.LoanDocuments.Commands;
 using BankingApi.Application.LoanDocuments.Queries;
 using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 
 namespace BankingApi.API.Controllers;
@@ -47,6 +49,8 @@ public class LoanDocumentsController : ControllerBase
 
     /// <summary>Upload a document for a loan. Accepted: PDF, JPG, PNG — max 10 MB.</summary>
     [HttpPost]
+    [EnableRateLimiting("upload-policy")]
+    [RequestTimeout("upload-timeout")]
     [ProducesResponseType(typeof(UploadLoanDocumentResult), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -85,6 +89,7 @@ public class LoanDocumentsController : ControllerBase
 
     /// <summary>List all documents for a loan.</summary>
     [HttpGet]
+    [RequestTimeout("query-timeout")]
     [ProducesResponseType(typeof(IEnumerable<LoanDocumentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDocuments(Guid loanId, CancellationToken ct)
@@ -106,6 +111,7 @@ public class LoanDocumentsController : ControllerBase
 
     /// <summary>Generate a temporary (15 min) secure download URI for a document.</summary>
     [HttpGet("{documentId:guid}/download")]
+    [RequestTimeout("query-timeout")]
     [ProducesResponseType(typeof(GetDocumentDownloadUriResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDownloadUri(
