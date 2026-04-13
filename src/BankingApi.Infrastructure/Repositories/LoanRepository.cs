@@ -18,6 +18,10 @@ public class LoanRepository : ILoanRepository
         _logger = logger;
     }
 
+    public async Task<Loan?> GetByIdempotencyKeyAsync(Guid key, CancellationToken ct = default)
+    => await _db.Loans
+        .FirstOrDefaultAsync(l => l.IdempotencyKey == key, ct);
+
     public async Task AddAsync(Loan loan, CancellationToken ct = default)
         => await _db.Loans.AddAsync(loan, ct);
 

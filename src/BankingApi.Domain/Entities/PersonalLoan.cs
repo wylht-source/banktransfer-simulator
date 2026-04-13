@@ -11,12 +11,13 @@ public class PersonalLoan : Loan
     private PersonalLoan() { }
 
     // ── Factory constructor ──────────────────────────────────────────────────
-    public PersonalLoan(string clientId, decimal amount, int installments)
+    public PersonalLoan(string clientId, decimal amount, int installments,  Guid? idempotencyKey = null)
     {
         Validate(amount, installments);
 
         var requiredRole = DetermineRequiredRole(amount, PersonalSupervisorLimit);
-        InitializeCommonFields(clientId, amount, installments, MonthlyInterestRate, requiredRole);
+        InitializeCommonFields(clientId, amount, installments, MonthlyInterestRate, requiredRole, idempotencyKey);
+
     }
 
     // ── Validation ───────────────────────────────────────────────────────────

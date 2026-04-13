@@ -49,7 +49,7 @@ public class LoanHandlerTests
     public async Task RequestLoan_ValidData_ReturnsLoanWithPendingStatus()
     {
         var result = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12));
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
 
         result.LoanId.Should().NotBeEmpty();
         result.Status.Should().Be(LoanStatus.PendingApproval);
@@ -61,9 +61,28 @@ public class LoanHandlerTests
     public async Task RequestLoan_InvalidAmount_ThrowsDomainException()
     {
         var act = async () => await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 500m, 12));
+            new RequestLoanCommand(ClientId, 500m, 12, Guid.NewGuid()));
 
         await act.Should().ThrowAsync<DomainException>().WithMessage("*amount*");
+    }
+
+    [Fact]
+    public async Task RequestLoan_SameIdempotencyKey_ReturnsExistingLoan()
+    {
+        var idempotencyKey = Guid.NewGuid();
+        
+        var result1 = await _requestHandler.Handle(
+            new RequestLoanCommand(ClientId, 5_000m, 12, idempotencyKey));
+
+        var result2 = await _requestHandler.Handle(
+            new RequestLoanCommand(ClientId, 5_000m, 12, idempotencyKey));
+
+        result1.LoanId.Should().Be(result2.LoanId);
+        result1.Amount.Should().Be(result2.Amount);
+        result1.Installments.Should().Be(result2.Installments);
+
+        var allLoans = await _getMyLoansHandler.Handle(new GetMyLoansQuery(ClientId, 1, 10));
+        allLoans.TotalCount.Should().Be(1);
     }
 
     // ── Approve ───────────────────────────────────────────────────────────────
@@ -72,7 +91,7 @@ public class LoanHandlerTests
     public async Task ApproveLoan_ByAuthorizedRole_ChangesStatusToApproved()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12)); // Manager level
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid())); // Manager level
 
         var result = await _approveHandler.Handle(
             new ApproveLoanCommand(loan.LoanId, ManagerId, "Manager"));
@@ -90,7 +109,7 @@ public class LoanHandlerTests
     public async Task ApproveLoan_ByInsufficientRole_ThrowsDomainException()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 50_000m, 24)); // Supervisor level
+            new RequestLoanCommand(ClientId, 50_000m, 24, Guid.NewGuid())); // Supervisor level
 
         var act = async () => await _approveHandler.Handle(
             new ApproveLoanCommand(loan.LoanId, ManagerId, "Manager"));
@@ -104,7 +123,7 @@ public class LoanHandlerTests
     public async Task RejectLoan_WithReason_ChangesStatusToRejected()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12));
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
 
         var result = await _rejectHandler.Handle(
             new RejectLoanCommand(loan.LoanId, ManagerId, "Manager", "Insufficient credit history."));
@@ -123,7 +142,7 @@ public class LoanHandlerTests
     public async Task RejectLoan_WithoutReason_ThrowsDomainException()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12));
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
 
         var act = async () => await _rejectHandler.Handle(
             new RejectLoanCommand(loan.LoanId, ManagerId, "Manager", ""));
@@ -137,7 +156,7 @@ public class LoanHandlerTests
     public async Task CancelLoan_ByOwner_ChangesStatusToCancelled()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12));
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
 
         await _cancelHandler.Handle(new CancelLoanCommand(loan.LoanId, ClientId));
 
@@ -151,7 +170,7 @@ public class LoanHandlerTests
     public async Task CancelLoan_ByWrongClient_ThrowsDomainException()
     {
         var loan = await _requestHandler.Handle(
-            new RequestLoanCommand(ClientId, 5_000m, 12));
+            new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
 
         var act = async () => await _cancelHandler.Handle(
             new CancelLoanCommand(loan.LoanId, "wrong-client"));
@@ -164,9 +183,9 @@ public class LoanHandlerTests
     [Fact]
     public async Task GetMyLoans_ReturnsPaginatedResults()
     {
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12));
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 10_000m, 24));
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 15_000m, 36));
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 10_000m, 24, Guid.NewGuid()));
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 15_000m, 36, Guid.NewGuid()));
 
         var result = await _getMyLoansHandler.Handle(
             new GetMyLoansQuery(ClientId, Page: 1, PageSize: 2));
@@ -180,9 +199,9 @@ public class LoanHandlerTests
     [Fact]
     public async Task GetPendingLoans_ManagerSeesOnlyManagerLevel()
     {
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12));    // Manager
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 50_000m, 24));   // Supervisor
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 150_000m, 48));  // CreditCommittee
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));    // Manager
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 50_000m, 24, Guid.NewGuid()));   // Supervisor
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 150_000m, 48, Guid.NewGuid()));  // CreditCommittee
 
         var result = await _getPendingHandler.Handle(
             new GetPendingLoansQuery("Manager", Page: 1, PageSize: 10));
@@ -194,9 +213,9 @@ public class LoanHandlerTests
     [Fact]
     public async Task GetPendingLoans_SupervisorSeesManagerAndSupervisorLevel()
     {
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12));    // Manager
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 50_000m, 24));   // Supervisor
-        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 150_000m, 48));  // CreditCommittee
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 5_000m, 12, Guid.NewGuid()));    // Manager
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 50_000m, 24, Guid.NewGuid()));   // Supervisor
+        await _requestHandler.Handle(new RequestLoanCommand(ClientId, 150_000m, 48, Guid.NewGuid()));  // CreditCommittee
 
         var result = await _getPendingHandler.Handle(
             new GetPendingLoansQuery("Supervisor", Page: 1, PageSize: 10));

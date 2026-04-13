@@ -82,8 +82,12 @@ public class LoansController : ControllerBase
     {
         try
         {
+            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+
+            if (!Guid.TryParse(idempotencyKey, out var parsedKey))
+                return BadRequest(new { error = "Idempotency-Key header is required and must be a valid GUID." });
             var result = await _requestHandler.Handle(
-                new RequestLoanCommand(UserId, request.Amount, request.Installments), ct);
+                new RequestLoanCommand(UserId, request.Amount, request.Installments, parsedKey), ct);
 
             return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
         }
@@ -102,11 +106,16 @@ public class LoansController : ControllerBase
     {
         try
         {
+            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+            if (!Guid.TryParse(idempotencyKey, out var parsedKey))
+                        return BadRequest(new { error = "Idempotency-Key header is required and must be a valid GUID." });
+
+
             var result = await _requestPayrollHandler.Handle(
                 new RequestPayrollLoanCommand(
                     UserId, request.Amount, request.Installments,
                     request.EmployerName, request.MonthlySalary,
-                    request.EmploymentStatus, request.ExistingPayrollDeductions), ct);
+                    request.EmploymentStatus, request.ExistingPayrollDeductions, parsedKey), ct);
 
             return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
         }

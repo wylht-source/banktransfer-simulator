@@ -14,6 +14,7 @@ public abstract class Loan
     public const string RoleCreditCommittee = "CreditCommittee";
 
     // ── Common properties ────────────────────────────────────────────────────
+    public Guid? IdempotencyKey { get; protected set; }
     public Guid      Id                   { get; protected set; }
     public string    ClientId             { get; protected set; } = null!;
     public decimal   Amount               { get; protected set; }
@@ -100,11 +101,12 @@ public abstract class Loan
     }
 
     // ── Protected helpers ────────────────────────────────────────────────────
-
     protected void InitializeCommonFields(
         string clientId, decimal amount, int installments,
-        decimal interestRate, string requiredApprovalRole)
+        decimal interestRate, string requiredApprovalRole,
+        Guid? idempotencyKey = null)
     {
+        IdempotencyKey       = idempotencyKey;
         Id                   = Guid.NewGuid();
         ClientId             = clientId;
         Amount               = amount;

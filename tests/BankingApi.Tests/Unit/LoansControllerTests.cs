@@ -60,12 +60,21 @@ public class LoansControllerTests
     public async Task RequestLoan_ValidRequest_Returns201Created()
     {
         var mockRepo = new Mock<ILoanRepository>();
+        mockRepo.Setup(r => r.GetByIdempotencyKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Loan?)null);
+        mockRepo.Setup(r => r.AddAsync(It.IsAny<Loan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        mockRepo.Setup(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         var mockPublisher = new Mock<IMessagePublisher>();
         mockPublisher.Setup(p => p.PublishAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var result = await BuildController(mockRepo.Object, mockPublisher.Object, role: "Client")
-            .RequestLoan(new RequestLoanRequest(15_000m, 12), default);
+        var controller = BuildController(mockRepo.Object, mockPublisher.Object, role: "Client");
+        controller.Request.Headers["Idempotency-Key"] = Guid.NewGuid().ToString();
+
+        var result = await controller.RequestLoan(new RequestLoanRequest(15_000m, 12), default);
 
         result.Should().BeOfType<CreatedAtActionResult>()
             .Which.StatusCode.Should().Be(201);
@@ -74,8 +83,10 @@ public class LoansControllerTests
     [Fact]
     public async Task RequestLoan_InvalidAmount_Returns400BadRequest()
     {
-        var result = await BuildController(new Mock<ILoanRepository>().Object, role: "Client")
-            .RequestLoan(new RequestLoanRequest(0m, 12), default);
+        var controller = BuildController(new Mock<ILoanRepository>().Object, role: "Client");
+        controller.Request.Headers["Idempotency-Key"] = Guid.NewGuid().ToString();
+
+        var result = await controller.RequestLoan(new RequestLoanRequest(0m, 12), default);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }

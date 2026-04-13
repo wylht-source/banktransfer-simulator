@@ -28,4 +28,7 @@ public interface ILoanRepository
     /// </summary>
     Task<(IEnumerable<Loan> Loans, int TotalCount)> GetDecidedByRolesAsync(
         IEnumerable<string> roles, int page, int pageSize, CancellationToken ct = default);
+
+    Task<Loan?> GetByIdempotencyKeyAsync(Guid key, CancellationToken ct = default);
+
 }

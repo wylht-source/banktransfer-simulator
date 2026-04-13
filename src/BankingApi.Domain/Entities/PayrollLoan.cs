@@ -26,7 +26,8 @@ public class PayrollLoan : Loan
         string employerName,
         decimal monthlySalary,
         EmploymentStatus employmentStatus,
-        decimal existingPayrollDeductions)
+        decimal existingPayrollDeductions,
+        Guid? idempotencyKey = null)
     {
         Validate(amount, installments, employerName, monthlySalary, employmentStatus);
 
@@ -35,7 +36,7 @@ public class PayrollLoan : Loan
         ValidatePayrollMargin(monthlySalary, existingPayrollDeductions, provisionalPmt);
 
         var requiredRole = DetermineRequiredRole(amount, PayrollSupervisorLimit);
-        InitializeCommonFields(clientId, amount, installments, MonthlyInterestRate, requiredRole);
+        InitializeCommonFields(clientId, amount, installments, MonthlyInterestRate, requiredRole, idempotencyKey);
 
         EmployerName              = employerName;
         MonthlySalary             = monthlySalary;

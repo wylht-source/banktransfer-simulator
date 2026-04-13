@@ -9,7 +9,8 @@ namespace BankingApi.Application.Loans.Commands;
 public record RequestLoanCommand(
     string ClientId,
     decimal Amount,
-    int Installments);
+    int Installments,
+    Guid IdempotencyKey);
 
 // ── Result ───────────────────────────────────────────────────────────────────
 public record RequestLoanResult(
@@ -32,11 +33,24 @@ public class RequestLoanHandler(
 
     public async Task<RequestLoanResult> Handle(RequestLoanCommand command, CancellationToken ct = default)
     {
+        var existing = await loanRepository.GetByIdempotencyKeyAsync(command.IdempotencyKey, ct);
+        if (existing is not null)
+                return new RequestLoanResult(
+                    LoanId:              existing.Id,
+                    Amount:              existing.Amount,
+                    Installments:        existing.Installments,
+                    InterestRate:        existing.InterestRate,
+                    MonthlyPayment:      existing.MonthlyPayment,
+                    RequiredApprovalRole: existing.RequiredApprovalRole,
+                    Status:              existing.Status,
+                    AiAnalysisStatus:    existing.AiAnalysisStatus,
+                    RequestedAt:         existing.RequestedAt);
+
         var loan = new PersonalLoan(
             clientId:     command.ClientId,
             amount:       command.Amount,
-            installments: command.Installments);
-
+            installments: command.Installments,
+            idempotencyKey:  command.IdempotencyKey);
         await loanRepository.AddAsync(loan, ct);
         await loanRepository.SaveChangesAsync(ct);
 

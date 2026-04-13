@@ -13,7 +13,8 @@ public record RequestPayrollLoanCommand(
     string EmployerName,
     decimal MonthlySalary,
     EmploymentStatus EmploymentStatus,
-    decimal ExistingPayrollDeductions);
+    decimal ExistingPayrollDeductions,
+    Guid IdempotencyKey);              // ← novo
 
 // ── Result ───────────────────────────────────────────────────────────────────
 public record RequestPayrollLoanResult(
@@ -42,6 +43,24 @@ public class RequestPayrollLoanHandler(
     public async Task<RequestPayrollLoanResult> Handle(
         RequestPayrollLoanCommand command, CancellationToken ct = default)
     {
+        // Idempotency check
+        var existing = await loanRepository.GetByIdempotencyKeyAsync(command.IdempotencyKey, ct);
+        if (existing is PayrollLoan existingPayroll)
+            return new RequestPayrollLoanResult(
+                LoanId:                   existingPayroll.Id,
+                Amount:                   existingPayroll.Amount,
+                Installments:             existingPayroll.Installments,
+                InterestRate:             existingPayroll.InterestRate,
+                MonthlyPayment:           existingPayroll.MonthlyPayment,
+                RequiredApprovalRole:     existingPayroll.RequiredApprovalRole,
+                Status:                   existingPayroll.Status,
+                AiAnalysisStatus:         existingPayroll.AiAnalysisStatus,
+                RequestedAt:              existingPayroll.RequestedAt,
+                PayrollMarginLimit:       existingPayroll.PayrollMarginLimit,
+                AvailablePayrollMargin:   existingPayroll.AvailablePayrollMargin,
+                RemainingPayrollMargin:   existingPayroll.RemainingPayrollMargin,
+                MarginUsageAfterApproval: existingPayroll.MarginUsageAfterApproval);
+
         var loan = new PayrollLoan(
             clientId:                  command.ClientId,
             amount:                    command.Amount,
@@ -49,7 +68,8 @@ public class RequestPayrollLoanHandler(
             employerName:              command.EmployerName,
             monthlySalary:             command.MonthlySalary,
             employmentStatus:          command.EmploymentStatus,
-            existingPayrollDeductions: command.ExistingPayrollDeductions);
+            existingPayrollDeductions: command.ExistingPayrollDeductions,
+            idempotencyKey:            command.IdempotencyKey);
 
         await loanRepository.AddAsync(loan, ct);
         await loanRepository.SaveChangesAsync(ct);

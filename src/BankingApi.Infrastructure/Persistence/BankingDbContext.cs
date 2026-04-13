@@ -75,7 +75,8 @@ public class BankingDbContext : IdentityDbContext<IdentityUser>
             e.HasIndex(l => l.Status);
             e.Property(l => l.AiAnalysisStatus).HasConversion<int>();
             e.Property(l => l.AiAnalysisRequestedAt);
-
+            e.Property(l => l.IdempotencyKey);
+            e.HasIndex(l => l.IdempotencyKey).IsUnique().HasFilter("[IdempotencyKey] IS NOT NULL");
 
 
             e.HasMany(l => l.ApprovalHistory)
