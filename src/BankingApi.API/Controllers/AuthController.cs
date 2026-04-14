@@ -16,11 +16,13 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(UserManager<IdentityUser> userManager, IConfiguration config)
+    public AuthController(UserManager<IdentityUser> userManager, IConfiguration config, ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _config = config;
+        _logger = logger;
     }
 
     /// <summary>Register a new user. All users are assigned the Client role by default.</summary>
@@ -51,7 +53,13 @@ public class AuthController : ControllerBase
     {
         var user = await _userManager.FindByEmailAsync(cmd.Email);
         if (user is null || !await _userManager.CheckPasswordAsync(user, cmd.Password))
+        {
+            _logger.LogWarning(
+            "LoginFailed — Email: {Email}, IP: {IP}",
+            cmd.Email,
+            HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
             return Unauthorized(new { error = "Invalid email or password." });
+        }
 
         var roles = await _userManager.GetRolesAsync(user);
         var token = GenerateJwtToken(user, roles);

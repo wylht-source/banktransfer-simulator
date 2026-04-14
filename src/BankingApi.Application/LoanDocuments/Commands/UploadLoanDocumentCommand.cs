@@ -1,6 +1,7 @@
 using BankingApi.Application.Interfaces;
 using BankingApi.Domain.Entities;
 using BankingApi.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 
 namespace BankingApi.Application.LoanDocuments.Commands;
@@ -25,31 +26,32 @@ public static class DocumentUploadPolicy
 
 // ── Command ──────────────────────────────────────────────────────────────────
 public record UploadLoanDocumentCommand(
-    Guid   LoanId,
+    Guid LoanId,
     string UploadedByUserId,
     string UploadedByRole,
     Stream FileStream,
     string OriginalFileName,
     string ContentType,
-    long   SizeBytes,
+    long SizeBytes,
     string? DocumentType);
 
 // ── Result ───────────────────────────────────────────────────────────────────
 public record UploadLoanDocumentResult(
-    Guid     DocumentId,
-    Guid     LoanId,
-    string   OriginalFileName,
-    string   ContentType,
-    long     SizeBytes,
-    string?  DocumentType,
-    string   StorageProvider,
+    Guid DocumentId,
+    Guid LoanId,
+    string OriginalFileName,
+    string ContentType,
+    long SizeBytes,
+    string? DocumentType,
+    string StorageProvider,
     DateTime UploadedAt);
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 public class UploadLoanDocumentHandler(
     ILoanRepository loanRepository,
     ILoanDocumentRepository documentRepository,
-    IBlobStorageService blobStorageService)
+    IBlobStorageService blobStorageService,
+    ILogger<UploadLoanDocumentHandler> logger)
 {
     private static readonly string[] ApproverRoles =
     [
@@ -76,7 +78,7 @@ public class UploadLoanDocumentHandler(
 
         // Build blob path: loans/{loanId}/documents/{documentId}
         var documentId = Guid.NewGuid();
-        var blobPath   = $"loans/{command.LoanId}/documents/{documentId}";
+        var blobPath = $"loans/{command.LoanId}/documents/{documentId}";
 
         // Upload to blob storage
         await blobStorageService.UploadAsync(
@@ -84,28 +86,32 @@ public class UploadLoanDocumentHandler(
 
         // Persist metadata
         var document = new LoanDocument(
-            loanId:          command.LoanId,
+            loanId: command.LoanId,
             uploadedByUserId: command.UploadedByUserId,
-            blobPath:        blobPath,
+            blobPath: blobPath,
             originalFileName: command.OriginalFileName,
-            contentType:     command.ContentType,
-            sizeBytes:       command.SizeBytes,
-            documentType:    command.DocumentType,
-            sha256:          sha256);
+            contentType: command.ContentType,
+            sizeBytes: command.SizeBytes,
+            documentType: command.DocumentType,
+            sha256: sha256);
 
         // Set Id to match the one used in blobPath
         await documentRepository.AddAsync(document, ct);
         await documentRepository.SaveChangesAsync(ct);
+        logger.LogInformation(
+    "LoanDocumentUploaded — DocumentId: {DocumentId}, LoanId: {LoanId}, FileName: {FileName}, ContentType: {ContentType}, SizeBytes: {SizeBytes}, UploadedBy: {UserId}",
+    document.Id, document.LoanId, document.OriginalFileName,
+    document.ContentType, document.SizeBytes, document.UploadedByUserId);
 
         return new UploadLoanDocumentResult(
-            DocumentId:      document.Id,
-            LoanId:          document.LoanId,
+            DocumentId: document.Id,
+            LoanId: document.LoanId,
             OriginalFileName: document.OriginalFileName,
-            ContentType:     document.ContentType,
-            SizeBytes:       document.SizeBytes,
-            DocumentType:    document.DocumentType,
+            ContentType: document.ContentType,
+            SizeBytes: document.SizeBytes,
+            DocumentType: document.DocumentType,
             StorageProvider: document.StorageProvider,
-            UploadedAt:      document.UploadedAt);
+            UploadedAt: document.UploadedAt);
     }
 
     private static void ValidateFile(string fileName, string contentType, long sizeBytes)
@@ -124,7 +130,7 @@ public class UploadLoanDocumentHandler(
     private static async Task<string> ComputeSha256Async(Stream stream, CancellationToken ct)
     {
         using var sha256 = SHA256.Create();
-        var hashBytes    = await sha256.ComputeHashAsync(stream, ct);
+        var hashBytes = await sha256.ComputeHashAsync(stream, ct);
         return Convert.ToHexString(hashBytes).ToLower();
     }
 }

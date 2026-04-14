@@ -2,6 +2,7 @@ using BankingApi.Application.Interfaces;
 using BankingApi.Application.Loans.Messages;
 using BankingApi.Domain.Enums;
 using BankingApi.Domain.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace BankingApi.Application.Loans.Commands;
 
@@ -18,7 +19,8 @@ public record RetryAiAnalysisResult(
 public class RetryAiAnalysisHandler(
     ILoanRepository loanRepository,
     ILoanDocumentRepository documentRepository,
-    IMessagePublisher messagePublisher)
+    IMessagePublisher messagePublisher,
+    ILogger<RetryAiAnalysisHandler> logger)
 {
     private const string LoanAnalysisQueue = "loan-analysis-requests";
 
@@ -47,7 +49,9 @@ public class RetryAiAnalysisHandler(
             : AiAnalysisStatus.Failed);
 
         await loanRepository.SaveChangesAsync(ct);
-
+logger.LogInformation(
+    "AiAnalysisRetried — LoanId: {LoanId}, Status: {Status}, DocumentCount: {DocumentCount}, Published: {Published}",
+    loan.Id, loan.AiAnalysisStatus, documentList.Count, published);
         return new RetryAiAnalysisResult(
             LoanId:           loan.Id,
             AiAnalysisStatus: loan.AiAnalysisStatus,

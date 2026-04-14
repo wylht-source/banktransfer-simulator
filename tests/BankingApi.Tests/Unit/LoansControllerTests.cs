@@ -4,9 +4,11 @@ using BankingApi.Application.Loans.Commands;
 using BankingApi.Application.Loans.Queries;
 using BankingApi.Application.Loans.Services;
 using BankingApi.Domain.Entities;
+using BankingApi.Domain.Exceptions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Security.Claims;
 
@@ -14,6 +16,27 @@ namespace BankingApi.Tests.Unit;
 
 public class LoansControllerTests
 {
+    // Helper: Simula o comportamento do GlobalExceptionHandlerMiddleware nos testes
+    private static async Task<IActionResult> ExecuteWithExceptionHandling(Func<Task<IActionResult>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (DomainException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            return new NotFoundObjectResult(new { error = ex.Message });
+        }
+        catch (DomainException ex) when (ex.Message.Contains("Access denied", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ForbidResult();
+        }
+        catch (DomainException ex)
+        {
+            return new BadRequestObjectResult(new { error = ex.Message });
+        }
+    }
+
     private static LoansController BuildController(
         ILoanRepository loanRepo,
         IMessagePublisher? publisher = null,
@@ -27,17 +50,17 @@ public class LoansControllerTests
             .ReturnsAsync("Test User");
 
         var controller = new LoansController(
-            new RequestLoanHandler(loanRepo, publisher),
-            new RequestPayrollLoanHandler(loanRepo, publisher),
+            new RequestLoanHandler(loanRepo, publisher, NullLogger<RequestLoanHandler>.Instance),
+            new RequestPayrollLoanHandler(loanRepo, publisher, NullLogger<RequestLoanHandler>.Instance),
             new ApproveLoanHandler(loanRepo),
             new RejectLoanHandler(loanRepo),
-            new CancelLoanHandler(loanRepo),
+            new CancelLoanHandler(loanRepo, NullLogger<CancelLoanHandler>.Instance),
             new GetLoanHandler(loanRepo),
             new GetMyLoansHandler(loanRepo),
             new GetPendingLoansHandler(loanRepo),
             new GetDecidedLoansHandler(loanRepo),
             new GetLoanApprovalDetailsHandler(loanRepo, new LoanProfitabilityService(), mockIdentity.Object),
-            new RetryAiAnalysisHandler(loanRepo, new Mock<ILoanDocumentRepository>().Object, publisher));
+            new RetryAiAnalysisHandler(loanRepo, new Mock<ILoanDocumentRepository>().Object, publisher, NullLogger<RetryAiAnalysisHandler>.Instance));
 
         controller.ControllerContext = new ControllerContext
         {
@@ -81,14 +104,14 @@ public class LoansControllerTests
     }
 
     [Fact]
-    public async Task RequestLoan_InvalidAmount_Returns400BadRequest()
+    public async Task RequestLoan_InvalidAmount_ThrowsDomainException()
     {
         var controller = BuildController(new Mock<ILoanRepository>().Object, role: "Client");
         controller.Request.Headers["Idempotency-Key"] = Guid.NewGuid().ToString();
 
-        var result = await controller.RequestLoan(new RequestLoanRequest(0m, 12), default);
+        var act = () => controller.RequestLoan(new RequestLoanRequest(0m, 12), default);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*amount*");
     }
 
     // ── Approve ───────────────────────────────────────────────────────────────
@@ -108,20 +131,21 @@ public class LoansControllerTests
     }
 
     [Fact]
-    public async Task Approve_LoanNotFound_Returns404NotFound()
+    public async Task Approve_LoanNotFound_ThrowsDomainException()
     {
         var mockRepo = new Mock<ILoanRepository>();
         mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Loan?)null);
 
-        var result = await BuildController(mockRepo.Object)
-            .Approve(Guid.NewGuid(), default);
+        var controller = BuildController(mockRepo.Object);
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        var act = () => controller.Approve(Guid.NewGuid(), default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*not found*");
     }
 
     [Fact]
-    public async Task Approve_InsufficientRole_Returns400BadRequest()
+    public async Task Approve_InsufficientRole_ThrowsDomainException()
     {
         // Supervisor-level loan approved by a Manager → domain rejects with "authority"
         var loan = new PersonalLoan("client-1", 50_000m, 24); // RequiredRole = Supervisor
@@ -129,10 +153,11 @@ public class LoansControllerTests
         mockRepo.Setup(r => r.GetByIdAsync(loan.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(loan);
 
-        var result = await BuildController(mockRepo.Object, userId: "manager-1", role: Loan.RoleManager)
-            .Approve(loan.Id, default);
+        var controller = BuildController(mockRepo.Object, userId: "manager-1", role: Loan.RoleManager);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var act = () => controller.Approve(loan.Id, default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*authority*");
     }
 
     // ── Reject ────────────────────────────────────────────────────────────────
@@ -152,30 +177,32 @@ public class LoansControllerTests
     }
 
     [Fact]
-    public async Task Reject_EmptyReason_Returns400BadRequest()
+    public async Task Reject_EmptyReason_ThrowsDomainException()
     {
         var loan = new PersonalLoan("client-1", 10_000m, 12);
         var mockRepo = new Mock<ILoanRepository>();
         mockRepo.Setup(r => r.GetByIdAsync(loan.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(loan);
 
-        var result = await BuildController(mockRepo.Object, userId: "manager-1", role: Loan.RoleManager)
-            .Reject(loan.Id, new RejectLoanRequest(""), default);
+        var controller = BuildController(mockRepo.Object, userId: "manager-1", role: Loan.RoleManager);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var act = () => controller.Reject(loan.Id, new RejectLoanRequest(""), default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*reason*");
     }
 
     [Fact]
-    public async Task Reject_LoanNotFound_Returns404NotFound()
+    public async Task Reject_LoanNotFound_ThrowsDomainException()
     {
         var mockRepo = new Mock<ILoanRepository>();
         mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Loan?)null);
 
-        var result = await BuildController(mockRepo.Object)
-            .Reject(Guid.NewGuid(), new RejectLoanRequest("Too risky."), default);
+        var controller = BuildController(mockRepo.Object);
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        var act = () => controller.Reject(Guid.NewGuid(), new RejectLoanRequest("Too risky."), default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*not found*");
     }
 
     // ── Cancel ────────────────────────────────────────────────────────────────
@@ -195,7 +222,7 @@ public class LoansControllerTests
     }
 
     [Fact]
-    public async Task Cancel_AlreadyApprovedLoan_Returns400BadRequest()
+    public async Task Cancel_AlreadyApprovedLoan_ThrowsDomainException()
     {
         var loan = new PersonalLoan("client-1", 10_000m, 12);
         loan.Approve("manager-1", Loan.RoleManager);
@@ -203,9 +230,10 @@ public class LoansControllerTests
         mockRepo.Setup(r => r.GetByIdAsync(loan.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(loan);
 
-        var result = await BuildController(mockRepo.Object, userId: "client-1", role: "Client")
-            .Cancel(loan.Id, default);
+        var controller = BuildController(mockRepo.Object, userId: "client-1", role: "Client");
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var act = () => controller.Cancel(loan.Id, default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*pending*");
     }
 }

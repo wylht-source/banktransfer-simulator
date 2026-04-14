@@ -37,24 +37,28 @@ public class GlobalExceptionHandlerMiddleware(RequestDelegate next, ILogger<Glob
             OperationCanceledException
                 => (499, "Request was cancelled by the client."),
 
-            _   => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.")
+            _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred.")
         };
 
         // Log 500s with full details — lower severity for expected domain errors
         if (statusCode == StatusCodes.Status500InternalServerError)
             logger.LogError(exception,
                 "Unhandled exception. CorrelationId: {CorrelationId}", correlationId);
+        else if (statusCode == StatusCodes.Status403Forbidden)
+            logger.LogWarning(
+                "AccessDenied — Path: {Path}, CorrelationId: {CorrelationId}",
+                context.Request.Path, correlationId);
         else
             logger.LogWarning(
                 "Handled exception [{StatusCode}] {Message}. CorrelationId: {CorrelationId}",
                 statusCode, message, correlationId);
 
-        context.Response.StatusCode  = statusCode;
+        context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/json";
 
         var response = new
         {
-            error         = message,
+            error = message,
             correlationId = correlationId
         };
 

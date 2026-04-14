@@ -2,6 +2,7 @@ using BankingApi.Application.Interfaces;
 using BankingApi.Application.Loans.Commands;
 using BankingApi.Domain.Enums;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace BankingApi.Tests.Unit.Application;
@@ -18,7 +19,7 @@ public class RequestPayrollLoanHandlerTests
         mockRepo.Setup(r => r.GetByIdempotencyKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Domain.Entities.Loan?)null);
 
-        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object);
+        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var cmd = new RequestPayrollLoanCommand(
             ClientId: "client-1",
             Amount: 20_000m,
@@ -49,7 +50,7 @@ public class RequestPayrollLoanHandlerTests
         mockRepo.Setup(r => r.GetByIdempotencyKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Domain.Entities.Loan?)null);
 
-        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object);
+        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var cmd = new RequestPayrollLoanCommand(
             ClientId: "client-1",
             Amount: 20_000m,
@@ -84,7 +85,7 @@ public class RequestPayrollLoanHandlerTests
         mockRepo.Setup(r => r.GetByIdempotencyKeyAsync(idempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingLoan);
 
-        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object);
+        var handler = new RequestPayrollLoanHandler(mockRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var cmd = new RequestPayrollLoanCommand(
             ClientId: "client-1",
             Amount: 20_000m,

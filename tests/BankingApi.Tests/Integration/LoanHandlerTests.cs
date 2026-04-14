@@ -34,10 +34,10 @@ public class LoanHandlerTests
         var nullMessagePublisher = new BankingApi.Infrastructure.Services.Messaging.NullMessagePublisher(
             NullLogger<BankingApi.Infrastructure.Services.Messaging.NullMessagePublisher>.Instance);
 
-        _requestHandler    = new RequestLoanHandler(_loanRepo, nullMessagePublisher);
+        _requestHandler    = new RequestLoanHandler(_loanRepo, nullMessagePublisher, NullLogger<RequestLoanHandler>.Instance);
         _approveHandler    = new ApproveLoanHandler(_loanRepo);
         _rejectHandler     = new RejectLoanHandler(_loanRepo);
-        _cancelHandler     = new CancelLoanHandler(_loanRepo);
+        _cancelHandler     = new CancelLoanHandler(_loanRepo, NullLogger<CancelLoanHandler>.Instance);
         _getLoanHandler    = new GetLoanHandler(_loanRepo);
         _getMyLoansHandler = new GetMyLoansHandler(_loanRepo);
         _getPendingHandler = new GetPendingLoansHandler(_loanRepo);

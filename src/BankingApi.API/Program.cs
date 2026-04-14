@@ -176,6 +176,14 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (context, ct) =>
     {
+        var logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILogger<Program>>();
+
+        logger.LogWarning(
+            "RateLimitExceeded — Path: {Path}, IP: {IP}",
+            context.HttpContext.Request.Path,
+            context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+
         context.HttpContext.Response.StatusCode = 429;
         await context.HttpContext.Response.WriteAsJsonAsync(
             new { error = "Too many requests. Please try again later." }, ct);

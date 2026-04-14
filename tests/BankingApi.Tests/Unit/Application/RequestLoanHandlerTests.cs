@@ -2,6 +2,7 @@ using BankingApi.Application.Loans.Commands;
 using BankingApi.Application.Interfaces;
 using BankingApi.Domain.Enums;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace BankingApi.Tests.Unit.Application;
@@ -18,7 +19,7 @@ public class RequestLoanHandlerTests
         mockLoanRepo.Setup(r => r.GetByIdempotencyKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Domain.Entities.Loan?)null);
 
-        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object);
+        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var cmd = new RequestLoanCommand("client-1", 50_000m, 24, Guid.NewGuid());
 
         var result = await handler.Handle(cmd);
@@ -40,7 +41,7 @@ public class RequestLoanHandlerTests
         mockLoanRepo.Setup(r => r.GetByIdempotencyKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Domain.Entities.Loan?)null);
 
-        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object);
+        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var result = await handler.Handle(new RequestLoanCommand("client-1", 30_000m, 12, Guid.NewGuid()));
 
         result.AiAnalysisStatus.Should().Be(AiAnalysisStatus.Failed);
@@ -61,7 +62,7 @@ public class RequestLoanHandlerTests
         mockLoanRepo.Setup(r => r.GetByIdempotencyKeyAsync(idempotencyKey, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingLoan);
 
-        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object);
+        var handler = new RequestLoanHandler(mockLoanRepo.Object, mockPublisher.Object, NullLogger<RequestLoanHandler>.Instance);
         var cmd = new RequestLoanCommand("client-1", 50_000m, 24, idempotencyKey);
 
         var result = await handler.Handle(cmd);

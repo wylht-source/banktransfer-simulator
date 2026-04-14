@@ -4,6 +4,7 @@ using BankingApi.Application.Accounts.Queries;
 using BankingApi.Application.Interfaces;
 using BankingApi.Application.Transactions.Queries;
 using BankingApi.Domain.Entities;
+using BankingApi.Domain.Exceptions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -53,13 +54,13 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task Create_EmptyOwnerName_Returns400BadRequest()
+    public async Task Create_EmptyOwnerName_ThrowsDomainException()
     {
         var controller = BuildController(new Mock<IAccountRepository>().Object);
 
-        var result = await controller.Create(new CreateAccountRequest(""), default);
+        var act = () => controller.Create(new CreateAccountRequest(""), default);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*required*");
     }
 
     // ── GetMe ─────────────────────────────────────────────────────────────────
@@ -79,15 +80,17 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task GetMe_AccountNotFound_Returns404NotFound()
+    public async Task GetMe_AccountNotFound_ThrowsDomainException()
     {
         var mockRepo = new Mock<IAccountRepository>();
         mockRepo.Setup(r => r.GetByOwnerIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Account?)null);
 
-        var result = await BuildController(mockRepo.Object).GetMe(default);
+        var controller = BuildController(mockRepo.Object);
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        var act = () => controller.GetMe(default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*not found*");
     }
 
     // ── GetById ───────────────────────────────────────────────────────────────
@@ -106,19 +109,21 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task GetById_AccountNotFound_Returns404NotFound()
+    public async Task GetById_AccountNotFound_ThrowsDomainException()
     {
         var mockRepo = new Mock<IAccountRepository>();
         mockRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Account?)null);
 
-        var result = await BuildController(mockRepo.Object).GetById(Guid.NewGuid(), default);
+        var controller = BuildController(mockRepo.Object);
 
-        result.Should().BeOfType<NotFoundObjectResult>();
+        var act = () => controller.GetById(Guid.NewGuid(), default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*not found*");
     }
 
     [Fact]
-    public async Task GetById_OtherUsersAccount_Returns403Forbidden()
+    public async Task GetById_OtherUsersAccount_ThrowsDomainException()
     {
         var account = Account.Create("Alice", "user-2");
         var mockRepo = new Mock<IAccountRepository>();
@@ -126,11 +131,11 @@ public class AccountsControllerTests
             .ReturnsAsync(account);
 
         // user-1 requests an account owned by user-2
-        var result = await BuildController(mockRepo.Object, userId: "user-1")
-            .GetById(account.Id, default);
+        var controller = BuildController(mockRepo.Object, userId: "user-1");
 
-        result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(403);
+        var act = () => controller.GetById(account.Id, default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*Access denied*");
     }
 
     // ── GetStatement ──────────────────────────────────────────────────────────
@@ -153,7 +158,7 @@ public class AccountsControllerTests
     }
 
     [Fact]
-    public async Task GetStatement_OtherUsersAccount_Returns403Forbidden()
+    public async Task GetStatement_OtherUsersAccount_ThrowsDomainException()
     {
         var account = Account.Create("Alice", "user-2");
         var mockRepo = new Mock<IAccountRepository>();
@@ -161,10 +166,10 @@ public class AccountsControllerTests
         mockRepo.Setup(r => r.GetByIdAsync(account.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(account);
 
-        var result = await BuildController(mockRepo.Object, mockTx.Object, userId: "user-1")
-            .GetStatement(account.Id, ct: default);
+        var controller = BuildController(mockRepo.Object, mockTx.Object, userId: "user-1");
 
-        result.Should().BeOfType<ObjectResult>()
-            .Which.StatusCode.Should().Be(403);
+        var act = () => controller.GetStatement(account.Id, ct: default);
+
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*Access denied*");
     }
 }
