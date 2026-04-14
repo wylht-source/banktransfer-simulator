@@ -1,7 +1,6 @@
 using BankingApi.Application.Accounts.Commands;
 using BankingApi.Application.Accounts.Queries;
 using BankingApi.Application.Transactions.Queries;
-using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -37,20 +36,13 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] CreateAccountRequest request, CancellationToken ct)
     {
-        try
-        {
-            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? User.FindFirstValue("sub")!;
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")!;
 
-            var result = await _createHandler.HandleAsync(
-                new CreateAccountCommand(request.OwnerName, ownerId), ct);
+        var result = await _createHandler.HandleAsync(
+            new CreateAccountCommand(request.OwnerName, ownerId), ct);
 
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     /// <summary>Returns the authenticated user's account.</summary>
@@ -59,20 +51,13 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMe(CancellationToken ct)
     {
-        try
-        {
-            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? User.FindFirstValue("sub")!;
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")!;
 
-            var result = await _getByOwnerHandler.HandleAsync(new GetAccountByOwnerQuery(ownerId), ct);
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
+        var result = await _getByOwnerHandler.HandleAsync(new GetAccountByOwnerQuery(ownerId), ct);
+        return Ok(result);
     }
-    
+
     /// <summary>Returns account details and current balance.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(GetAccountResult), StatusCodes.Status200OK)]
@@ -80,20 +65,11 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? User.FindFirstValue("sub")!;
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")!;
 
-            var result = await _getHandler.HandleAsync(new GetAccountQuery(id, ownerId), ct);
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+        var result = await _getHandler.HandleAsync(new GetAccountQuery(id, ownerId), ct);
+        return Ok(result);
     }
 
     /// <summary>Returns paginated transaction history for an account.</summary>
@@ -107,22 +83,15 @@ public class AccountsController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        try
-        {
-            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? User.FindFirstValue("sub")!;
 
-            var result = await _statementHandler.HandleAsync(
-                new GetStatementQuery(id, ownerId, page, pageSize), ct);
+        var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub")!;
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+        var result = await _statementHandler.HandleAsync(
+            new GetStatementQuery(id, ownerId, page, pageSize), ct);
+
+        return Ok(result);
+
     }
 }
 

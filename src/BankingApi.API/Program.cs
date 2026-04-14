@@ -26,6 +26,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Timeouts;
 
+
 var builder = WebApplication.CreateBuilder(args);
 // Application Insights
 builder.Services.AddApplicationInsightsTelemetry();
@@ -251,6 +252,7 @@ if (!app.Environment.IsProduction())
 app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseRequestTimeouts();
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();

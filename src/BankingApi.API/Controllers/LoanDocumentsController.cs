@@ -1,6 +1,5 @@
 using BankingApi.Application.LoanDocuments.Commands;
 using BankingApi.Application.LoanDocuments.Queries;
-using BankingApi.Domain.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
@@ -23,8 +22,8 @@ public class LoanDocumentsController : ControllerBase
         GetLoanDocumentsHandler getDocumentsHandler,
         GetDocumentDownloadUriHandler getDownloadUriHandler)
     {
-        _uploadHandler        = uploadHandler;
-        _getDocumentsHandler  = getDocumentsHandler;
+        _uploadHandler = uploadHandler;
+        _getDocumentsHandler = getDocumentsHandler;
         _getDownloadUriHandler = getDownloadUriHandler;
     }
 
@@ -40,8 +39,8 @@ public class LoanDocumentsController : ControllerBase
     private static string GetHighestRole(IEnumerable<string> roles)
     {
         if (roles.Contains("CreditCommittee")) return "CreditCommittee";
-        if (roles.Contains("Supervisor"))      return "Supervisor";
-        if (roles.Contains("Manager"))         return "Manager";
+        if (roles.Contains("Supervisor")) return "Supervisor";
+        if (roles.Contains("Manager")) return "Manager";
         return roles.FirstOrDefault() ?? "Client";
     }
 
@@ -60,31 +59,24 @@ public class LoanDocumentsController : ControllerBase
         [FromForm] string? documentType,
         CancellationToken ct)
     {
-        try
-        {
-            if (file is null || file.Length == 0)
-                return BadRequest(new { error = "No file was uploaded." });
 
-            await using var stream = file.OpenReadStream();
+        if (file is null || file.Length == 0)
+            return BadRequest(new { error = "No file was uploaded." });
 
-            var result = await _uploadHandler.Handle(new UploadLoanDocumentCommand(
-                LoanId:           loanId,
-                UploadedByUserId: UserId,
-                UploadedByRole:   HighestRole,
-                FileStream:       stream,
-                OriginalFileName: file.FileName,
-                ContentType:      file.ContentType,
-                SizeBytes:        file.Length,
-                DocumentType:     documentType), ct);
+        await using var stream = file.OpenReadStream();
 
-            return CreatedAtAction(nameof(GetDocuments), new { loanId }, result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : BadRequest(new { error = ex.Message });
-        }
+        var result = await _uploadHandler.Handle(new UploadLoanDocumentCommand(
+            LoanId: loanId,
+            UploadedByUserId: UserId,
+            UploadedByRole: HighestRole,
+            FileStream: stream,
+            OriginalFileName: file.FileName,
+            ContentType: file.ContentType,
+            SizeBytes: file.Length,
+            DocumentType: documentType), ct);
+
+        return CreatedAtAction(nameof(GetDocuments), new { loanId }, result);
+
     }
 
     /// <summary>List all documents for a loan.</summary>
@@ -94,19 +86,12 @@ public class LoanDocumentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDocuments(Guid loanId, CancellationToken ct)
     {
-        try
-        {
-            var result = await _getDocumentsHandler.Handle(
-                new GetLoanDocumentsQuery(loanId, UserId, HighestRole), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+        var result = await _getDocumentsHandler.Handle(
+            new GetLoanDocumentsQuery(loanId, UserId, HighestRole), ct);
+
+        return Ok(result);
+
     }
 
     /// <summary>Generate a temporary (15 min) secure download URI for a document.</summary>
@@ -117,18 +102,11 @@ public class LoanDocumentsController : ControllerBase
     public async Task<IActionResult> GetDownloadUri(
         Guid loanId, Guid documentId, CancellationToken ct)
     {
-        try
-        {
-            var result = await _getDownloadUriHandler.Handle(
-                new GetDocumentDownloadUriQuery(loanId, documentId, UserId, HighestRole), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+        var result = await _getDownloadUriHandler.Handle(
+            new GetDocumentDownloadUriQuery(loanId, documentId, UserId, HighestRole), ct);
+
+        return Ok(result);
+
     }
 }

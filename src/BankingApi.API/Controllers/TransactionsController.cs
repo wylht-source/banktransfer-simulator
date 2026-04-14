@@ -19,11 +19,11 @@ public class TransactionsController : ControllerBase
 
 
 
-public TransactionsController(
-    DepositHandler depositHandler,
-    WithdrawHandler withdrawHandler,
-    TransferHandler transferHandler,
-    IAccountRepository accounts)
+    public TransactionsController(
+        DepositHandler depositHandler,
+        WithdrawHandler withdrawHandler,
+        TransferHandler transferHandler,
+        IAccountRepository accounts)
     {
         _depositHandler = depositHandler;
         _withdrawHandler = withdrawHandler;
@@ -43,21 +43,16 @@ public TransactionsController(
         [FromBody] DepositRequest request,
         CancellationToken ct)
     {
-        try
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
-            var result = await _depositHandler.HandleAsync(
-                new DepositCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
-            if (result.WasDuplicate)
-                Response.Headers.Append("X-Idempotency-Replayed", "true");
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
+        var result = await _depositHandler.HandleAsync(
+            new DepositCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        if (result.WasDuplicate)
+            Response.Headers.Append("X-Idempotency-Replayed", "true");
+
+        return Ok(result);
+
     }
 
     /// <summary>
@@ -72,21 +67,16 @@ public TransactionsController(
         [FromBody] WithdrawRequest request,
         CancellationToken ct)
     {
-        try
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
-            var result = await _withdrawHandler.HandleAsync(
-                new WithdrawCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
-            if (result.WasDuplicate)
-                Response.Headers.Append("X-Idempotency-Replayed", "true");
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
+        var result = await _withdrawHandler.HandleAsync(
+            new WithdrawCommand(request.AccountId, request.Amount, request.Description, idempotencyKey, userId), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        if (result.WasDuplicate)
+            Response.Headers.Append("X-Idempotency-Replayed", "true");
+
+        return Ok(result);
+
     }
 
     /// <summary>
@@ -102,36 +92,31 @@ public TransactionsController(
         [FromBody] TransferRequest request,
         CancellationToken ct)
     {
-        try
-        {
-            // Resolve destination — accepts both GUID and AccountNumber
-            Domain.Entities.Account? toAccount = Guid.TryParse(request.ToAccountId, out var toGuid)
-                ? await _accounts.GetByIdAsync(toGuid, ct)
-                : await _accounts.GetByAccountNumberAsync(request.ToAccountId, ct);
 
-            if (toAccount is null)
-                return NotFound(new { error = "Destination account not found." });
+        // Resolve destination — accepts both GUID and AccountNumber
+        Domain.Entities.Account? toAccount = Guid.TryParse(request.ToAccountId, out var toGuid)
+            ? await _accounts.GetByIdAsync(toGuid, ct)
+            : await _accounts.GetByAccountNumberAsync(request.ToAccountId, ct);
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
+        if (toAccount is null)
+            throw new DomainException("Destination account not found.");
 
-            var result = await _transferHandler.HandleAsync(
-                new TransferCommand(
-                    request.FromAccountId,
-                    toAccount.Id,
-                    request.Amount,
-                    request.Description,
-                    idempotencyKey,
-                    userId), ct);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!;
 
-            if (result.WasDuplicate)
-                Response.Headers.Append("X-Idempotency-Replayed", "true");
+        var result = await _transferHandler.HandleAsync(
+            new TransferCommand(
+                request.FromAccountId,
+                toAccount.Id,
+                request.Amount,
+                request.Description,
+                idempotencyKey,
+                userId), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        if (result.WasDuplicate)
+            Response.Headers.Append("X-Idempotency-Replayed", "true");
+
+        return Ok(result);
+
     }
 }
 

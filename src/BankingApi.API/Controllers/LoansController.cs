@@ -41,15 +41,15 @@ public class LoansController : ControllerBase
         GetLoanApprovalDetailsHandler getApprovalDetailsHandler,
         RetryAiAnalysisHandler retryAiAnalysisHandler)
     {
-        _requestHandler            = requestHandler;
-        _requestPayrollHandler     = requestPayrollHandler;
-        _approveHandler            = approveHandler;
-        _rejectHandler             = rejectHandler;
-        _cancelHandler             = cancelHandler;
-        _getLoanHandler            = getLoanHandler;
-        _getMyLoansHandler         = getMyLoansHandler;
-        _getPendingHandler         = getPendingHandler;
-        _getDecidedHandler         = getDecidedHandler;
+        _requestHandler = requestHandler;
+        _requestPayrollHandler = requestPayrollHandler;
+        _approveHandler = approveHandler;
+        _rejectHandler = rejectHandler;
+        _cancelHandler = cancelHandler;
+        _getLoanHandler = getLoanHandler;
+        _getMyLoansHandler = getMyLoansHandler;
+        _getPendingHandler = getPendingHandler;
+        _getDecidedHandler = getDecidedHandler;
         _getApprovalDetailsHandler = getApprovalDetailsHandler;
         _retryAiAnalysisHandler = retryAiAnalysisHandler;
     }
@@ -66,8 +66,8 @@ public class LoansController : ControllerBase
     private static string GetHighestRole(IEnumerable<string> roles)
     {
         if (roles.Contains(Loan.RoleCreditCommittee)) return Loan.RoleCreditCommittee;
-        if (roles.Contains(Loan.RoleSupervisor))      return Loan.RoleSupervisor;
-        if (roles.Contains(Loan.RoleManager))         return Loan.RoleManager;
+        if (roles.Contains(Loan.RoleSupervisor)) return Loan.RoleSupervisor;
+        if (roles.Contains(Loan.RoleManager)) return Loan.RoleManager;
         return roles.FirstOrDefault() ?? "Client";
     }
 
@@ -80,21 +80,16 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RequestLoan([FromBody] RequestLoanRequest request, CancellationToken ct)
     {
-        try
-        {
-            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
 
-            if (!Guid.TryParse(idempotencyKey, out var parsedKey))
-                return BadRequest(new { error = "Idempotency-Key header is required and must be a valid GUID." });
-            var result = await _requestHandler.Handle(
-                new RequestLoanCommand(UserId, request.Amount, request.Installments, parsedKey), ct);
+        var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
 
-            return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        if (!Guid.TryParse(idempotencyKey, out var parsedKey))
+            return BadRequest(new { error = "Idempotency-Key header is required and must be a valid GUID." });
+        var result = await _requestHandler.Handle(
+            new RequestLoanCommand(UserId, request.Amount, request.Installments, parsedKey), ct);
+
+        return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
+
     }
 
     /// <summary>Client requests a new payroll loan.</summary>
@@ -104,25 +99,19 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RequestPayroll([FromBody] RequestPayrollLoanRequest request, CancellationToken ct)
     {
-        try
-        {
-            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
-            if (!Guid.TryParse(idempotencyKey, out var parsedKey))
-                        return BadRequest(new { error = "Idempotency-Key header is required and must be a valid GUID." });
+
+        var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+        if (!Guid.TryParse(idempotencyKey, out var parsedKey))
+            throw new DomainException("Idempotency-Key header is required and must be a valid GUID.");
 
 
-            var result = await _requestPayrollHandler.Handle(
-                new RequestPayrollLoanCommand(
-                    UserId, request.Amount, request.Installments,
-                    request.EmployerName, request.MonthlySalary,
-                    request.EmploymentStatus, request.ExistingPayrollDeductions, parsedKey), ct);
+        var result = await _requestPayrollHandler.Handle(
+            new RequestPayrollLoanCommand(
+                UserId, request.Amount, request.Installments,
+                request.EmployerName, request.MonthlySalary,
+                request.EmploymentStatus, request.ExistingPayrollDeductions, parsedKey), ct);
 
-            return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
-        }
-        catch (DomainException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
+        return CreatedAtAction(nameof(GetById), new { id = result.LoanId }, result);
     }
 
     /// <summary>Returns paginated list of the authenticated client's loans.</summary>
@@ -149,17 +138,9 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var result = await _cancelHandler.Handle(new CancelLoanCommand(id, UserId), ct);
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : BadRequest(new { error = ex.Message });
-        }
+
+        var result = await _cancelHandler.Handle(new CancelLoanCommand(id, UserId), ct);
+        return Ok(result);
     }
 
     // ── Shared endpoints ──────────────────────────────────────────────────────
@@ -172,18 +153,11 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var result = await _getLoanHandler.Handle(
-                new GetLoanQuery(id, UserId, HighestRole), ct);
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+
+        var result = await _getLoanHandler.Handle(
+            new GetLoanQuery(id, UserId, HighestRole), ct);
+        return Ok(result);
+
     }
 
     // ── Approver endpoints ────────────────────────────────────────────────────
@@ -196,19 +170,12 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RetryAiAnalysis(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var result = await _retryAiAnalysisHandler.Handle(
-                new RetryAiAnalysisCommand(id), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : BadRequest(new { error = ex.Message });
-        }
+        var result = await _retryAiAnalysisHandler.Handle(
+            new RetryAiAnalysisCommand(id), ct);
+
+        return Ok(result);
+
     }
 
     /// <summary>Returns pending loans the authenticated approver has authority to action.</summary>
@@ -225,7 +192,7 @@ public class LoansController : ControllerBase
             new GetPendingLoansQuery(HighestRole, page, pageSize), ct);
 
         return Ok(result);
-    }    
+    }
 
     /// <summary>Returns approved and rejected loans within the approver's authority.</summary>
     [HttpGet("decided")]
@@ -252,19 +219,12 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetApprovalDetails(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var result = await _getApprovalDetailsHandler.Handle(
-                new GetLoanApprovalDetailsQuery(id, UserId, HighestRole), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : StatusCode(403, new { error = ex.Message });
-        }
+        var result = await _getApprovalDetailsHandler.Handle(
+            new GetLoanApprovalDetailsQuery(id, UserId, HighestRole), ct);
+
+        return Ok(result);
+
     }
 
     /// <summary>Approves a pending loan. Requires sufficient role authority.</summary>
@@ -275,19 +235,12 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Approve(Guid id, CancellationToken ct)
     {
-        try
-        {
-            var result = await _approveHandler.Handle(
-                new ApproveLoanCommand(id, UserId, HighestRole), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : BadRequest(new { error = ex.Message });
-        }
+        var result = await _approveHandler.Handle(
+            new ApproveLoanCommand(id, UserId, HighestRole), ct);
+
+        return Ok(result);
+
     }
 
     /// <summary>Rejects a pending loan. Reason is mandatory.</summary>
@@ -298,19 +251,12 @@ public class LoansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Reject(Guid id, [FromBody] RejectLoanRequest request, CancellationToken ct)
     {
-        try
-        {
-            var result = await _rejectHandler.Handle(
-                new RejectLoanCommand(id, UserId, HighestRole, request.Reason), ct);
 
-            return Ok(result);
-        }
-        catch (DomainException ex)
-        {
-            return ex.Message.Contains("not found")
-                ? NotFound(new { error = ex.Message })
-                : BadRequest(new { error = ex.Message });
-        }
+        var result = await _rejectHandler.Handle(
+            new RejectLoanCommand(id, UserId, HighestRole, request.Reason), ct);
+
+        return Ok(result);
+
     }
 }
 
